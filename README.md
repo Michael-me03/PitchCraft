@@ -4,9 +4,7 @@
 
 # ⚡ PitchCraft
 
-**Turn your corporate PowerPoint template into an AI-powered presentation engine — upload your company template, add a PDF or prompt, and get fully branded slides in seconds.**
-
-**Verwandle dein Corporate-PowerPoint-Template in eine KI-gestützte Präsentationsmaschine — Template hochladen, PDF oder Prompt eingeben, fertige Folien in Sekunden.**
+**Turn your corporate PowerPoint template into an AI-powered presentation engine — upload your company template, add any context, and get fully branded slides in seconds.**
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -15,92 +13,11 @@
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?logo=openai&logoColor=white)](https://openai.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-🇩🇪 [Deutsch](#-deutsch) · 🇬🇧 [English](#-english)
-
 </div>
 
 ---
 
-## 🇩🇪 Deutsch
-
-### Was ist PitchCraft?
-
-PitchCraft ist für **Unternehmen mit einem eigenen Corporate-PowerPoint-Template** gebaut. Statt mühsam Folien manuell zu gestalten, lädst du einfach dein Unternehmenstemplate hoch, gibst ein PDF-Dokument (z.B. Quartalsbericht, Produktbriefing, Strategiepapier) und einen kurzen Prompt ein — und erhältst eine fertige, vollständig gebrandete Präsentation.
-
-GPT-4o analysiert den Inhalt, strukturiert eine Narrative, wählt die passenden Diagrammtypen und rendert alles direkt in dein Corporate-Template — inklusive Schriften, Farben, Logos und nativen Folienlayouts.
-
-**Der Ablauf:**
-
-```
-Corporate-Template (.pptx)  +  PDF / Prompt
-            ↓
-       GPT-4o (JSON-Folienstruktur)
-            ↓
-       Chart-Engine (25+ Diagrammtypen)
-            ↓
-       PPTX-Generator (rendert in dein Template)
-            ↓
-       Vollständig gebrandete .pptx — präsentationsfertig
-```
-
-Die KI erkennt automatisch die **nativen Folienlayouts** deines Templates — Abschnittstrennseiten, Zwei-Spalten-Layouts, Statement-/Zitatfolien — sodass das Ergebnis aussieht, als hätte es dein internes Designteam erstellt.
-
-### Features
-
-#### KI-Präsentationsstratege
-- Extrahiert echte Kennzahlen aus hochgeladenen PDFs und Markdown-Dateien
-- Folgt einem verbindlichen Narrative-Arc: **Kontext → Belege → Erkenntnisse → Handlungsempfehlungen**
-- Erzwingt Inhaltstiefe: Jede Folie muss 3–4 substanzielle Bullets oder ein echtes Diagramm haben
-- **Spracherkennung:** Dokument auf Deutsch → alle Folien auf Deutsch. Auf Englisch → alles auf Englisch
-- Stellt im UI gezielte **Rückfragen**, wenn Kontext fehlt oder unklar ist
-
-#### Corporate-Template — erstklassige Unterstützung
-- **Eigenes `.pptx`-Template hochladen** — PitchCraft rendert alle Folien direkt hinein
-- Erkennt und nutzt automatisch **native Folienlayouts** (Abschnittstrennseiten, Zwei-Spalten, Statement/Zitat, Closing)
-- Schriften, Farben, Logos und Wasserzeichen bleiben vollständig erhalten — nur der Inhalt wird generiert
-- Zusätzlich: über 20 eingebaute Templates für Teams ohne eigenes Template
-
-#### 25+ Diagrammtypen über drei Rendering-Engines
-
-| Engine | Diagramme |
-|--------|-----------|
-| **Plotly** | Balken, Gruppiert, Gestapelt, Linie, Multi-Linie, Fläche, Pie/Donut, Scatter, Wasserfall, Trichter, Treemap, Sunburst, Heatmap, Radar, Slope |
-| **Matplotlib** | KPI-Card, Multi-KPI-Reihe, Gauge, Progress-Ring, Icon-Stat-Grid |
-| **Altair** | Box-Plot, Histogramm, Dichte-Plot |
-
-#### 14 Folienlayout-Typen
-`title` · `agenda` · `section_header` · `content` · `chart` · `multi_chart` · `key_number` · `two_column` · `icon_grid` · `timeline` · `quote` · `metrics_grid` · `pricing` · `closing`
-
-### Schnellstart
-
-**Voraussetzungen:** Python 3.11+, Node.js 18+, [OpenAI API Key](https://platform.openai.com/api-keys)
-
-```bash
-# 1. Repository klonen
-git clone https://github.com/Michael-me03/PitchCraft.git
-cd PitchCraft
-
-# 2. Backend starten
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-echo "OPENAI_API_KEY=sk-..." > .env
-uvicorn main:app --reload --port 8000
-
-# 3. Frontend starten (neues Terminal)
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend: `http://localhost:5173` · API-Docs: `http://localhost:8000/docs`
-
----
-
-## 🇬🇧 English
-
-### What is PitchCraft?
+## What is PitchCraft?
 
 PitchCraft is built for **companies that already have a corporate PowerPoint template** and want to generate fully branded, content-rich presentations automatically — without a designer and without manual slide work.
 
