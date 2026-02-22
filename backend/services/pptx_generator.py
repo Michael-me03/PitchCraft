@@ -1,5 +1,5 @@
 """
-DeckForge PPTX Generator — McKinsey-Style Layout Engine
+PitchCraft PPTX Generator — McKinsey-Style Layout Engine
 ========================================================
 
 Design principles
@@ -167,7 +167,7 @@ def _detect_logo_safe_y(prs: Presentation) -> float:
     Scan slide layouts for image shapes in the top-left logo zone.
 
     Returns the minimum Y fraction (0–0.30) below which it is safe to place the
-    slide title, so that DeckForge text never overlaps template logos.
+    slide title, so that PitchCraft text never overlaps template logos.
 
     Args:
         prs: Loaded Presentation object.
@@ -592,7 +592,7 @@ def _discover_layouts(prs: Presentation) -> dict:
     Discover and map all slide layouts by name patterns.
 
     Detects both generic PowerPoint layout names (Blank, Title Slide, …) and
-    the rich Nagarro / corporate named layouts so that DeckForge can use each
+    the rich Nagarro / corporate named layouts so that PitchCraft can use each
     template's native designs instead of always falling back to the blank slide.
     """
     layouts: dict = {}

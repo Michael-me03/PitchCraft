@@ -1,5 +1,5 @@
 """
-DeckForge API — FastAPI Entry Point
+PitchCraft API — FastAPI Entry Point
 =====================================
 REST API that orchestrates the full presentation generation pipeline:
   PDF extraction → AI slide structure → Chart rendering → PPTX assembly
@@ -31,7 +31,7 @@ from services.ai_service import generate_presentation_structure, generate_clarif
 from services.pptx_generator import generate_pptx
 from services.template_generator import generate_template_pptx, get_template_catalog, TEMPLATE_CATALOG
 
-app = FastAPI(title="DeckForge API")
+app = FastAPI(title="PitchCraft API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -265,7 +265,7 @@ async def generate_presentation(
     download_id   = str(uuid.uuid4())
     template_name = (template_style or {}).get("name", "Presentation")
     date_str      = datetime.now().strftime("%Y-%m-%d")
-    filename      = f"DeckForge_{template_name}_{date_str}.pptx".replace(" ", "_")
+    filename      = f"PitchCraft_{template_name}_{date_str}.pptx".replace(" ", "_")
 
     _downloads[download_id] = {
         "bytes":   pptx_bytes,

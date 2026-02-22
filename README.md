@@ -2,7 +2,7 @@
 
 <div align="center">
 
-# ⚡ DeckForge
+# ⚡ PitchCraft
 
 **Turn your corporate PowerPoint template into an AI-powered presentation engine — upload your company template, add a PDF or prompt, and get fully branded slides in seconds.**
 
@@ -23,9 +23,9 @@
 
 ## 🇩🇪 Deutsch
 
-### Was ist DeckForge?
+### Was ist PitchCraft?
 
-DeckForge ist für **Unternehmen mit einem eigenen Corporate-PowerPoint-Template** gebaut. Statt mühsam Folien manuell zu gestalten, lädst du einfach dein Unternehmenstemplate hoch, gibst ein PDF-Dokument (z.B. Quartalsbericht, Produktbriefing, Strategiepapier) und einen kurzen Prompt ein — und erhältst eine fertige, vollständig gebrandete Präsentation.
+PitchCraft ist für **Unternehmen mit einem eigenen Corporate-PowerPoint-Template** gebaut. Statt mühsam Folien manuell zu gestalten, lädst du einfach dein Unternehmenstemplate hoch, gibst ein PDF-Dokument (z.B. Quartalsbericht, Produktbriefing, Strategiepapier) und einen kurzen Prompt ein — und erhältst eine fertige, vollständig gebrandete Präsentation.
 
 GPT-4o analysiert den Inhalt, strukturiert eine Narrative, wählt die passenden Diagrammtypen und rendert alles direkt in dein Corporate-Template — inklusive Schriften, Farben, Logos und nativen Folienlayouts.
 
@@ -55,7 +55,7 @@ Die KI erkennt automatisch die **nativen Folienlayouts** deines Templates — Ab
 - Stellt im UI gezielte **Rückfragen**, wenn Kontext fehlt oder unklar ist
 
 #### Corporate-Template — erstklassige Unterstützung
-- **Eigenes `.pptx`-Template hochladen** — DeckForge rendert alle Folien direkt hinein
+- **Eigenes `.pptx`-Template hochladen** — PitchCraft rendert alle Folien direkt hinein
 - Erkennt und nutzt automatisch **native Folienlayouts** (Abschnittstrennseiten, Zwei-Spalten, Statement/Zitat, Closing)
 - Schriften, Farben, Logos und Wasserzeichen bleiben vollständig erhalten — nur der Inhalt wird generiert
 - Zusätzlich: über 20 eingebaute Templates für Teams ohne eigenes Template
@@ -77,8 +77,8 @@ Die KI erkennt automatisch die **nativen Folienlayouts** deines Templates — Ab
 
 ```bash
 # 1. Repository klonen
-git clone https://github.com/Michael-me03/DeckForge.git
-cd DeckForge
+git clone https://github.com/Michael-me03/PitchCraft.git
+cd PitchCraft
 
 # 2. Backend starten
 cd backend
@@ -100,11 +100,11 @@ Frontend: `http://localhost:5173` · API-Docs: `http://localhost:8000/docs`
 
 ## 🇬🇧 English
 
-### What is DeckForge?
+### What is PitchCraft?
 
-DeckForge is built for **companies that already have a corporate PowerPoint template** and want to generate fully branded, content-rich presentations automatically — without a designer and without manual slide work.
+PitchCraft is built for **companies that already have a corporate PowerPoint template** and want to generate fully branded, content-rich presentations automatically — without a designer and without manual slide work.
 
-Upload your company `.pptx` template, add a PDF document (e.g. a quarterly report, product brief, or strategy paper) and a short prompt. DeckForge uses GPT-4o to analyse the content, structure a narrative, select the right charts, and render everything directly into your corporate template — preserving your fonts, colors, section dividers, and slide layouts.
+Upload your company `.pptx` template, add a PDF document (e.g. a quarterly report, product brief, or strategy paper) and a short prompt. PitchCraft uses GPT-4o to analyse the content, structure a narrative, select the right charts, and render everything directly into your corporate template — preserving your fonts, colors, section dividers, and slide layouts.
 
 **The pipeline:**
 
@@ -132,7 +132,7 @@ The AI detects and uses your template's **native slide layouts** — section div
 - Asks targeted **clarifying questions** in the UI when context is missing or vague
 
 #### Corporate Template — First-Class Support
-- **Upload your own `.pptx`** company template — DeckForge renders all slides directly into it
+- **Upload your own `.pptx`** company template — PitchCraft renders all slides directly into it
 - Automatically detects and uses **native slide layouts** (section dividers, two-column, statement/quote, closing slides)
 - Preserves your template's fonts, colors, logos, and watermarks — only the content is generated
 - Also includes a built-in catalog of 20+ templates for teams without a custom template
@@ -205,8 +205,8 @@ The AI detects and uses your template's **native slide layouts** — section div
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Michael-me03/DeckForge.git
-cd DeckForge
+git clone https://github.com/Michael-me03/PitchCraft.git
+cd PitchCraft
 
 # 2. Set up the backend
 cd backend
@@ -260,7 +260,7 @@ Main generation endpoint.
 | `pdf_file` | file | Source document (`.pdf` or `.md`) |
 | `clarifications` | string | JSON `{question: answer}` from clarify step |
 
-**Response:** `{ "download_id": "...", "filename": "DeckForge_...pptx" }`
+**Response:** `{ "download_id": "...", "filename": "PitchCraft_...pptx" }`
 
 #### `GET /api/download/{download_id}`
 Download the generated PPTX. Files expire after 30 minutes.
@@ -268,7 +268,7 @@ Download the generated PPTX. Files expire after 30 minutes.
 ### Project Structure
 
 ```
-DeckForge/
+PitchCraft/
 ├── backend/
 │   ├── main.py                    # FastAPI entry point & API endpoints
 │   ├── models/schemas.py          # Pydantic models

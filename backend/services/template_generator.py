@@ -1,5 +1,5 @@
 """
-DeckForge Template Generator
+PitchCraft Template Generator
 ==============================
 Maintains the built-in template catalog and generates blank PPTX files
 with the selected template's background color applied to the slide master

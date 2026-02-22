@@ -1,11 +1,11 @@
 """
-DeckForge – Layout & Chart Library Generator
+PitchCraft – Layout & Chart Library Generator
 =============================================
 Produces a reference PPTX covering EVERY slide type and EVERY chart type
 from the engine (25 charts × 3 slot variants = visual proof that layout,
 scaling and aspect-ratio rendering all work perfectly).
 
-Usage (from DeckForge/backend/):
+Usage (from PitchCraft/backend/):
     python3 ../test/generate_layout_library.py
 
 Output: ../test/layout_library.pptx
@@ -292,7 +292,7 @@ SLIDES = [
                  key_label="CFO, Global 500 Manufacturer"),
     SlideContent(layout_type="quote",
                  title="Market Analyst View",
-                 key_number="DeckForge represents the next generation of AI-native presentation tooling — combining the analytical rigour of McKinsey with the speed of a design agency.",
+                 key_number="PitchCraft represents the next generation of AI-native presentation tooling — combining the analytical rigour of McKinsey with the speed of a design agency.",
                  key_label="Senior Analyst, Gartner — Magic Quadrant Report 2025"),
 
     # ══ SECTION 10: Metrics Grid (Manus-style KPI cards + dark hero panel) ════
@@ -381,9 +381,9 @@ def main():
     out = os.path.join(os.path.dirname(__file__), "layout_library.pptx")
 
     structure = PresentationStructure(
-        title="DeckForge – Complete Layout & Chart Library",
+        title="PitchCraft – Complete Layout & Chart Library",
         subtitle="All 25 charts · 12 slide layouts incl. agenda / metrics_grid / pricing",
-        author="DeckForge QA — auto-generated",
+        author="PitchCraft QA — auto-generated",
         slides=SLIDES,
     )
 

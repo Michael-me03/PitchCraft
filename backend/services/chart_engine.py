@@ -1,9 +1,9 @@
 """
-Chart Engine v2.0 – DeckForge
+Chart Engine v2.0 – PitchCraft
 ==============================
 Three best-in-class chart engines for PowerPoint-ready PNG at 1920×1080:
 
-  Engine 1 – PLOTLY     : Primary engine · 17 chart types · "DeckForge" template
+  Engine 1 – PLOTLY     : Primary engine · 17 chart types · "PitchCraft" template
   Engine 2 – MATPLOTLIB : Infographic engine · KPI cards · Progress rings · Glassmorphism
   Engine 3 – ALTAIR     : Statistical engine · Distributions · Box plots · Density plots
 
@@ -114,7 +114,7 @@ _COLOR_MAP = {
 
 
 # ════════════════════════════════════════════════════════════════════
-# ENGINE 1 – PLOTLY  ("DeckForge" custom template)
+# ENGINE 1 – PLOTLY  ("PitchCraft" custom template)
 # ════════════════════════════════════════════════════════════════════
 
 _df_template = go.layout.Template(
@@ -157,8 +157,8 @@ _df_template = go.layout.Template(
         ),
     )
 )
-pio.templates["deckforge"] = _df_template
-pio.templates.default = "deckforge"
+pio.templates["pitchcraft"] = _df_template
+pio.templates.default = "pitchcraft"
 
 
 def _hex_rgba(hex_color: str, alpha: float) -> str:

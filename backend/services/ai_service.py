@@ -1,5 +1,5 @@
 """
-DeckForge AI Service — Presentation Structure Generator
+PitchCraft AI Service — Presentation Structure Generator
 =========================================================
 Uses OpenAI GPT-4o to convert a document (PDF text + user prompt) into a
 structured JSON presentation blueprint that the PPTX generator renders.
