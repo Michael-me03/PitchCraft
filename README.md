@@ -6,6 +6,8 @@
 
 **Turn your corporate PowerPoint template into an AI-powered presentation engine — upload your company template, add a PDF or prompt, and get fully branded slides in seconds.**
 
+**Verwandle dein Corporate-PowerPoint-Template in eine KI-gestützte Präsentationsmaschine — Template hochladen, PDF oder Prompt eingeben, fertige Folien in Sekunden.**
+
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
@@ -13,11 +15,92 @@
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?logo=openai&logoColor=white)](https://openai.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+🇩🇪 [Deutsch](#-deutsch) · 🇬🇧 [English](#-english)
+
 </div>
 
 ---
 
-## What is DeckForge?
+## 🇩🇪 Deutsch
+
+### Was ist DeckForge?
+
+DeckForge ist für **Unternehmen mit einem eigenen Corporate-PowerPoint-Template** gebaut. Statt mühsam Folien manuell zu gestalten, lädst du einfach dein Unternehmenstemplate hoch, gibst ein PDF-Dokument (z.B. Quartalsbericht, Produktbriefing, Strategiepapier) und einen kurzen Prompt ein — und erhältst eine fertige, vollständig gebrandete Präsentation.
+
+GPT-4o analysiert den Inhalt, strukturiert eine Narrative, wählt die passenden Diagrammtypen und rendert alles direkt in dein Corporate-Template — inklusive Schriften, Farben, Logos und nativen Folienlayouts.
+
+**Der Ablauf:**
+
+```
+Corporate-Template (.pptx)  +  PDF / Prompt
+            ↓
+       GPT-4o (JSON-Folienstruktur)
+            ↓
+       Chart-Engine (25+ Diagrammtypen)
+            ↓
+       PPTX-Generator (rendert in dein Template)
+            ↓
+       Vollständig gebrandete .pptx — präsentationsfertig
+```
+
+Die KI erkennt automatisch die **nativen Folienlayouts** deines Templates — Abschnittstrennseiten, Zwei-Spalten-Layouts, Statement-/Zitatfolien — sodass das Ergebnis aussieht, als hätte es dein internes Designteam erstellt.
+
+### Features
+
+#### KI-Präsentationsstratege
+- Extrahiert echte Kennzahlen aus hochgeladenen PDFs und Markdown-Dateien
+- Folgt einem verbindlichen Narrative-Arc: **Kontext → Belege → Erkenntnisse → Handlungsempfehlungen**
+- Erzwingt Inhaltstiefe: Jede Folie muss 3–4 substanzielle Bullets oder ein echtes Diagramm haben
+- **Spracherkennung:** Dokument auf Deutsch → alle Folien auf Deutsch. Auf Englisch → alles auf Englisch
+- Stellt im UI gezielte **Rückfragen**, wenn Kontext fehlt oder unklar ist
+
+#### Corporate-Template — erstklassige Unterstützung
+- **Eigenes `.pptx`-Template hochladen** — DeckForge rendert alle Folien direkt hinein
+- Erkennt und nutzt automatisch **native Folienlayouts** (Abschnittstrennseiten, Zwei-Spalten, Statement/Zitat, Closing)
+- Schriften, Farben, Logos und Wasserzeichen bleiben vollständig erhalten — nur der Inhalt wird generiert
+- Zusätzlich: über 20 eingebaute Templates für Teams ohne eigenes Template
+
+#### 25+ Diagrammtypen über drei Rendering-Engines
+
+| Engine | Diagramme |
+|--------|-----------|
+| **Plotly** | Balken, Gruppiert, Gestapelt, Linie, Multi-Linie, Fläche, Pie/Donut, Scatter, Wasserfall, Trichter, Treemap, Sunburst, Heatmap, Radar, Slope |
+| **Matplotlib** | KPI-Card, Multi-KPI-Reihe, Gauge, Progress-Ring, Icon-Stat-Grid |
+| **Altair** | Box-Plot, Histogramm, Dichte-Plot |
+
+#### 14 Folienlayout-Typen
+`title` · `agenda` · `section_header` · `content` · `chart` · `multi_chart` · `key_number` · `two_column` · `icon_grid` · `timeline` · `quote` · `metrics_grid` · `pricing` · `closing`
+
+### Schnellstart
+
+**Voraussetzungen:** Python 3.11+, Node.js 18+, [OpenAI API Key](https://platform.openai.com/api-keys)
+
+```bash
+# 1. Repository klonen
+git clone https://github.com/Michael-me03/DeckForge.git
+cd DeckForge
+
+# 2. Backend starten
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+echo "OPENAI_API_KEY=sk-..." > .env
+uvicorn main:app --reload --port 8000
+
+# 3. Frontend starten (neues Terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend: `http://localhost:5173` · API-Docs: `http://localhost:8000/docs`
+
+---
+
+## 🇬🇧 English
+
+### What is DeckForge?
 
 DeckForge is built for **companies that already have a corporate PowerPoint template** and want to generate fully branded, content-rich presentations automatically — without a designer and without manual slide work.
 
@@ -39,18 +122,22 @@ Corporate Template (.pptx)  +  PDF / Prompt
 
 The AI detects and uses your template's **native slide layouts** — section dividers, two-column slides, statement/quote layouts — so the output looks like it was built by your in-house design team, not a generic tool.
 
----
+### Features
 
-## Features
-
-### AI Presentation Strategist
+#### AI Presentation Strategist
 - Extracts real numeric data from uploaded PDFs and Markdown files
 - Follows a mandatory narrative arc: **Context → Evidence → Insights → Actions**
 - Enforces content density: every slide must have 3–4 substantive bullets or a real chart
-- Detects your document's language and generates everything in that language (German, English, etc.)
+- **Language detection:** German document → German slides. English document → English slides
 - Asks targeted **clarifying questions** in the UI when context is missing or vague
 
-### 25+ Chart Types via Three Rendering Engines
+#### Corporate Template — First-Class Support
+- **Upload your own `.pptx`** company template — DeckForge renders all slides directly into it
+- Automatically detects and uses **native slide layouts** (section dividers, two-column, statement/quote, closing slides)
+- Preserves your template's fonts, colors, logos, and watermarks — only the content is generated
+- Also includes a built-in catalog of 20+ templates for teams without a custom template
+
+#### 25+ Chart Types via Three Rendering Engines
 
 | Engine | Charts |
 |--------|--------|
@@ -58,40 +145,8 @@ The AI detects and uses your template's **native slide layouts** — section div
 | **Matplotlib** | KPI card, multi-KPI row, gauge, progress ring, icon-stat grid |
 | **Altair** | box plot, histogram, density plot |
 
-### 14 Slide Layout Types
+#### 14 Slide Layout Types
 `title` · `agenda` · `section_header` · `content` · `chart` · `multi_chart` · `key_number` · `two_column` · `icon_grid` · `timeline` · `quote` · `metrics_grid` · `pricing` · `closing`
-
-### Corporate Template — First-Class Support
-- **Upload your own `.pptx`** company template — DeckForge renders all slides directly into it
-- Automatically detects and uses **native slide layouts** (section dividers, two-column, statement/quote, closing slides)
-- Preserves your template's fonts, colors, logos, and watermarks — only the content is generated
-- Also includes a built-in catalog of 20+ templates for teams without a custom template
-
-### Smart Clarification Flow
-When you click **Review & Generate**, DeckForge checks whether your context is sufficient. If not, it surfaces 2–3 targeted questions inline — answer them or skip. Your answers are fed into the generation as high-priority context.
-
----
-
-## Screenshots
-
-<table>
-  <tr>
-    <td align="center"><b>Step 1 — Template Gallery</b></td>
-    <td align="center"><b>Step 2 — Prompt & Upload</b></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/ui_step1.png" alt="Template Gallery" width="400"/></td>
-    <td><img src="docs/screenshots/ui_step2.png" alt="Prompt Editor" width="400"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Clarification Flow</b></td>
-    <td align="center"><b>Generated Presentation</b></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/ui_clarify.png" alt="Clarification Panel" width="400"/></td>
-    <td><img src="docs/screenshots/output_slide.png" alt="Output Slide" width="400"/></td>
-  </tr>
-</table>
 
 ### Chart Engine Previews
 
@@ -122,11 +177,9 @@ When you click **Review & Generate**, DeckForge checks whether your context is s
   </tr>
 </table>
 
----
+### Tech Stack
 
-## Tech Stack
-
-### Backend
+#### Backend
 | Component | Technology |
 |-----------|-----------|
 | API Framework | FastAPI + Uvicorn |
@@ -136,7 +189,7 @@ When you click **Review & Generate**, DeckForge checks whether your context is s
 | Chart Rendering | Plotly/Kaleido · Matplotlib · Altair/vl-convert |
 | Data Processing | Pandas · SciPy · Squarify |
 
-### Frontend
+#### Frontend
 | Component | Technology |
 |-----------|-----------|
 | Framework | React 18 + TypeScript |
@@ -146,221 +199,104 @@ When you click **Review & Generate**, DeckForge checks whether your context is s
 | HTTP Client | Axios |
 | Icons | Lucide React |
 
----
+### Getting Started
 
-## Getting Started
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- An [OpenAI API key](https://platform.openai.com/api-keys)
-
-### 1. Clone the repository
+**Prerequisites:** Python 3.11+, Node.js 18+, [OpenAI API key](https://platform.openai.com/api-keys)
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/Michael-me03/DeckForge.git
 cd DeckForge
-```
 
-### 2. Set up the backend
-
-```bash
+# 2. Set up the backend
 cd backend
-
-# Create and activate a virtual environment
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Create your .env file with your API key
 echo "OPENAI_API_KEY=sk-..." > .env
-
-# Start the server
 uvicorn main:app --reload --port 8000
-```
 
-The API will be available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
-
-### 3. Set up the frontend
-
-```bash
+# 3. Set up the frontend (new terminal)
 cd frontend
-
 npm install
 npm run dev
 ```
 
-The UI will be available at `http://localhost:5173`.
+Frontend: `http://localhost:5173` · API docs: `http://localhost:8000/docs`
 
----
+### API Reference
 
-## API Reference
-
-### `GET /api/health`
-Liveness probe.
-
+#### `GET /api/health`
 ```json
 { "status": "ok" }
 ```
 
----
+#### `POST /api/clarify`
+Check if context is sufficient; returns targeted questions if not.
 
-### `GET /api/templates`
-Returns the full template catalog.
-
-```json
-[
-  {
-    "id": "nagarro",
-    "name": "Nagarro",
-    "category": "Corporate",
-    "description": "...",
-    "colors": { "bg": "#FFFFFF", "accent": "#00B4D8", "text": "#0F172A", "muted": "#64748B" },
-    "tags": ["corporate", "light"]
-  }
-]
-```
-
----
-
-### `POST /api/clarify`
-Check if the provided context is sufficient; returns targeted clarifying questions if not.
-
-**Request** (`multipart/form-data`):
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `user_prompt` | string | yes | Free-text description of the presentation |
-| `purpose` | string | no | `business` / `school` / `scientific` (default: `business`) |
-| `pdf_file` | file | no | Source document (`.pdf` or `.md`) |
+**Request** (`multipart/form-data`): `user_prompt`, `purpose`, `pdf_file` (optional)
 
 **Response:**
 ```json
 {
   "needs_clarification": true,
   "questions": [
-    {
-      "id": "q1",
-      "question": "What is the main goal of this presentation?",
-      "hint": "e.g. close a deal, inform stakeholders, request funding"
-    }
+    { "id": "q1", "question": "...", "hint": "e.g. ..." }
   ]
 }
 ```
 
----
-
-### `POST /api/generate`
-Main generation endpoint. Returns a download ID for the generated PPTX.
+#### `POST /api/generate`
+Main generation endpoint.
 
 **Request** (`multipart/form-data`):
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `template_id` | string | one of | ID from `/api/templates` |
-| `template_file` | file | one of | Custom `.pptx` template upload |
-| `user_prompt` | string | yes* | Free-text design instructions |
-| `purpose` | string | no | `business` / `school` / `scientific` |
-| `pdf_file` | file | no | Source document (`.pdf` or `.md`) |
-| `clarifications` | string | no | JSON `{question: answer}` from clarify step |
+| Field | Type | Description |
+|-------|------|-------------|
+| `template_id` | string | ID from `/api/templates` |
+| `template_file` | file | Custom `.pptx` template upload |
+| `user_prompt` | string | Free-text design instructions |
+| `purpose` | string | `business` / `school` / `scientific` |
+| `pdf_file` | file | Source document (`.pdf` or `.md`) |
+| `clarifications` | string | JSON `{question: answer}` from clarify step |
 
-*Required unless `pdf_file` is provided.
+**Response:** `{ "download_id": "...", "filename": "DeckForge_...pptx" }`
 
-**Response:**
-```json
-{
-  "download_id": "3f7a1b2c-...",
-  "filename": "DeckForge_Nagarro_2026-02-22.pptx"
-}
-```
+#### `GET /api/download/{download_id}`
+Download the generated PPTX. Files expire after 30 minutes.
 
----
-
-### `GET /api/download/{download_id}`
-Download the generated PPTX. Files expire 30 minutes after generation.
-
----
-
-## Project Structure
+### Project Structure
 
 ```
 DeckForge/
 ├── backend/
 │   ├── main.py                    # FastAPI entry point & API endpoints
-│   ├── requirements.txt
-│   ├── models/
-│   │   └── schemas.py             # Pydantic models (PresentationStructure, SlideSpec, ...)
-│   ├── services/
-│   │   ├── ai_service.py          # GPT-4o prompt builder, generation & clarification
-│   │   ├── chart_engine.py        # 25+ chart renderers (Plotly, Matplotlib, Altair)
-│   │   ├── pdf_parser.py          # PyMuPDF text extraction
-│   │   ├── pptx_generator.py      # Layout engine — 14 slide types, native template layouts
-│   │   └── template_generator.py  # Template catalog & background injection
-│   └── templates/                 # Built-in .pptx corporate templates (20+)
+│   ├── models/schemas.py          # Pydantic models
+│   └── services/
+│       ├── ai_service.py          # GPT-4o prompt builder, generation & clarification
+│       ├── chart_engine.py        # 25+ chart renderers (Plotly, Matplotlib, Altair)
+│       ├── pdf_parser.py          # PyMuPDF text extraction
+│       ├── pptx_generator.py      # Layout engine — 14 slide types, native template layouts
+│       └── template_generator.py  # Template catalog & background injection
 │
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx                # 3-step wizard with clarification flow
-│   │   ├── components/
-│   │   │   ├── TemplateGallery.tsx
-│   │   │   ├── PromptEditor.tsx
-│   │   │   └── ProgressIndicator.tsx
-│   │   ├── styles/globals.css
-│   │   └── types/template.ts
-│   ├── package.json
-│   └── vite.config.ts
+├── frontend/src/
+│   ├── App.tsx                    # 3-step wizard with clarification flow
+│   └── components/
 │
-├── test/
-│   ├── generate_layout_library.py # Full reference PPTX — all 25 chart types
-│   ├── test_charts.py             # Chart PNG previews
-│   └── inspect_pptx.py            # PPTX structure inspector
-│
-└── docs/
-    └── screenshots/               # Chart previews & UI screenshots
+├── test/                          # Chart previews, layout library, PPTX inspector
+└── docs/screenshots/              # UI screenshots & chart previews
 ```
 
----
-
-## How the AI Prompt Works
-
-DeckForge uses a multi-layer prompting strategy:
-
-1. **System prompt** — Role definition (McKinsey consultant), full chart schema, 26 design rules including:
-   - Language matching (German in → German out)
-   - Narrative arc (Context → Evidence → Insights → Actions)
-   - Content density (min 3 bullets per content slide, no empty chart slides)
-   - Chart diversity rules (which chart type to use for what)
-
-2. **User message** — Assembled from:
-   - Style/purpose instruction
-   - Template style context (colors, tone hints, native layout availability)
-   - Document text (up to 50,000 characters)
-   - Clarification answers (if provided)
-
-3. **Response format** — `json_object` mode, parsed into `PresentationStructure` (Pydantic model), then rendered slide-by-slide
-
----
-
-## Contributing
+### Contributing
 
 Pull requests are welcome. For major changes, please open an issue first.
 
-1. Fork the repo
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## License
+### License
 
 MIT — see [LICENSE](LICENSE) for details.
 
 ---
 
 <div align="center">
-Built with ⚡ by <a href="https://github.com/Michael-me03">Michael Meier</a> · For teams who take their brand seriously · Powered by OpenAI GPT-4o
+Built with ⚡ by <a href="https://github.com/Michael-me03">Michael Meier</a> · Für Teams, die ihre Marke ernst nehmen · Powered by OpenAI GPT-4o
 </div>
