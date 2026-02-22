@@ -296,7 +296,3 @@ Pull requests are welcome. For major changes, please open an issue first.
 MIT — see [LICENSE](LICENSE) for details.
 
 ---
-
-<div align="center">
-Built with ⚡ by <a href="https://github.com/Michael-me03">Michael Meier</a> · Für Teams, die ihre Marke ernst nehmen · Powered by OpenAI GPT-4o
-</div>
