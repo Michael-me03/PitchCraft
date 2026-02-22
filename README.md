@@ -4,7 +4,7 @@
 
 # ⚡ DeckForge
 
-**AI-powered PowerPoint generator — drop a PDF, describe your deck, download boardroom-quality slides in seconds.**
+**Turn your corporate PowerPoint template into an AI-powered presentation engine — upload your company template, add a PDF or prompt, and get fully branded slides in seconds.**
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -19,15 +19,25 @@
 
 ## What is DeckForge?
 
-DeckForge converts any PDF, Markdown file, or plain text prompt into a polished `.pptx` presentation using GPT-4o as the presentation strategist and a custom chart + layout engine to render the result.
+DeckForge is built for **companies that already have a corporate PowerPoint template** and want to generate fully branded, content-rich presentations automatically — without a designer and without manual slide work.
+
+Upload your company `.pptx` template, add a PDF document (e.g. a quarterly report, product brief, or strategy paper) and a short prompt. DeckForge uses GPT-4o to analyse the content, structure a narrative, select the right charts, and render everything directly into your corporate template — preserving your fonts, colors, section dividers, and slide layouts.
 
 **The pipeline:**
 
 ```
-PDF / Prompt  →  GPT-4o (JSON structure)  →  Chart Engine (PNG)  →  PPTX Generator  →  .pptx
+Corporate Template (.pptx)  +  PDF / Prompt
+          ↓
+     GPT-4o (JSON slide structure)
+          ↓
+     Chart Engine (25+ chart types)
+          ↓
+     PPTX Generator (renders into your template)
+          ↓
+     Fully branded .pptx — ready to present
 ```
 
-The AI acts as a McKinsey-trained consultant — extracting real data, structuring a narrative arc, choosing the right chart type for every insight, and filling every slide with specific, numbered facts.
+The AI detects and uses your template's **native slide layouts** — section dividers, two-column slides, statement/quote layouts — so the output looks like it was built by your in-house design team, not a generic tool.
 
 ---
 
@@ -51,10 +61,11 @@ The AI acts as a McKinsey-trained consultant — extracting real data, structuri
 ### 14 Slide Layout Types
 `title` · `agenda` · `section_header` · `content` · `chart` · `multi_chart` · `key_number` · `two_column` · `icon_grid` · `timeline` · `quote` · `metrics_grid` · `pricing` · `closing`
 
-### Corporate Template Support
-- Upload any `.pptx` as a template, or pick from the built-in catalog (20+ templates)
-- Automatically uses **native slide layouts** from corporate templates (section dividers, two-column, statement/quote layouts)
-- Preserves the template's fonts, colors, and watermarks — only fills in content
+### Corporate Template — First-Class Support
+- **Upload your own `.pptx`** company template — DeckForge renders all slides directly into it
+- Automatically detects and uses **native slide layouts** (section dividers, two-column, statement/quote, closing slides)
+- Preserves your template's fonts, colors, logos, and watermarks — only the content is generated
+- Also includes a built-in catalog of 20+ templates for teams without a custom template
 
 ### Smart Clarification Flow
 When you click **Review & Generate**, DeckForge checks whether your context is sufficient. If not, it surfaces 2–3 targeted questions inline — answer them or skip. Your answers are fed into the generation as high-priority context.
@@ -351,5 +362,5 @@ MIT — see [LICENSE](LICENSE) for details.
 ---
 
 <div align="center">
-Built with ⚡ by <a href="https://github.com/Michael-me03">Michael Meier</a> · Powered by OpenAI GPT-4o
+Built with ⚡ by <a href="https://github.com/Michael-me03">Michael Meier</a> · For teams who take their brand seriously · Powered by OpenAI GPT-4o
 </div>
