@@ -457,7 +457,7 @@ def generate_presentation_structure(
 
     # ── Call GPT-4o ────────────────────────────────────────────────────────────
     response = client.chat.completions.create(
-        model="gpt-5.2",
+        model="gpt-5.2-pro",
         max_tokens=16000,
         messages=[
             {"role": "system", "content": system_prompt},
