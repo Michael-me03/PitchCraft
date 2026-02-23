@@ -16,6 +16,7 @@ Responsibilities:
 # ============================================================================
 
 import json
+import logging
 import os
 import re
 from typing import Optional
@@ -27,6 +28,12 @@ from models.schemas import PresentationStructure
 from services.chart_engine import get_chart_schema_for_ai
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# ── LLM-as-a-Judge configuration ─────────────────────────────────────────────
+_JUDGE_MODEL          = "gpt-5.2-pro"   # evaluator — smarter/more precise than generator
+_MAX_JUDGE_ITERATIONS = 3               # 1 initial generation + up to 2 retries
 
 
 # ============================================================================
@@ -378,20 +385,23 @@ def generate_presentation_structure(
     user_prompt: str = "",
     template_style: Optional[dict] = None,
     clarifications: Optional[dict] = None,
+    judge_feedback: Optional[list[str]] = None,
 ) -> PresentationStructure:
     """
-    Generate a complete presentation structure via GPT-4o.
+    Generate a complete presentation structure via gpt-5.2.
 
     Workflow:
     1. Resolve purpose instruction (user_prompt overrides purpose preset)
     2. Build system prompt with chart schema and design rules
     3. Build user message from document text and style instructions
-    4. Call GPT-4o with JSON response mode
-    5. Parse and validate the JSON into PresentationStructure
+    4. Optionally inject judge feedback from a previous failed attempt
+    5. Call gpt-5.2 with JSON response mode
+    6. Parse and validate the JSON into PresentationStructure
 
     Args:
         pdf_text:        Extracted text from the uploaded PDF (may be empty).
         purpose:         One of "business", "school", "scientific".
+        judge_feedback:  List of specific issues from the quality judge (retry context).
         user_prompt:     Free-text design instructions (overrides purpose preset).
         template_style:  Template metadata dict for style-aware tone adaptation.
         clarifications:  Optional dict of {question: answer} from the clarification step.
@@ -434,11 +444,20 @@ def generate_presentation_structure(
             parts.append(
                 f"ADDITIONAL CONTEXT (answers to clarifying questions — treat as high-priority input):\n{clar_lines}"
             )
+
+    if judge_feedback:
+        issues_str = "\n".join(f"  • {issue}" for issue in judge_feedback)
+        parts.append(
+            f"⚠️  QUALITY FEEDBACK FROM PREVIOUS ATTEMPT — fix ALL of these issues:\n"
+            f"{issues_str}\n\n"
+            f"Do NOT repeat these mistakes. Every issue listed above MUST be resolved in this attempt."
+        )
+
     user_message = "\n\n".join(parts)
 
     # ── Call GPT-4o ────────────────────────────────────────────────────────────
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-5.2",
         max_tokens=16000,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -456,6 +475,196 @@ def generate_presentation_structure(
 
     data = json.loads(response_text)
     return PresentationStructure(**data)
+
+
+# ============================================================================
+# SECTION: LLM-as-a-Judge Quality Loop
+# ============================================================================
+
+def _judge_structure(
+    structure_json: str,
+    user_prompt: str,
+    pdf_text: str,
+    purpose: str,
+    chart_schema: str,
+) -> dict:
+    """
+    Evaluate a generated presentation structure with chain-of-thought reasoning
+    followed by a binary verdict.
+
+    The judge receives the full chart schema so it can verify whether chart
+    ``params`` contain real numeric data (not placeholder values).
+
+    Args:
+        structure_json: JSON-serialised PresentationStructure to evaluate.
+        user_prompt:    Original user instructions.
+        pdf_text:       Source document text (may be empty).
+        purpose:        One of "business", "school", "scientific".
+        chart_schema:   Available chart functions and their parameter schemas.
+
+    Returns:
+        Dict with keys:
+          - reasoning (str):   Step-by-step analysis written before the verdict.
+          - verdict   (str):   "good" or "bad".
+          - issues    (list):  Specific, actionable problems (empty when "good").
+    """
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    system_prompt = (
+        "You are a senior McKinsey presentation consultant reviewing an AI-generated "
+        "slide deck structure. Your job: identify quality failures with precision.\n\n"
+
+        "EVALUATION CRITERIA — check every slide against ALL of these:\n"
+        "1. CONTENT DENSITY: Every non-section slide must have 3–4 substantive bullets "
+        "with real data, OR ≥1 chart with actual numeric params. "
+        "Vague filler ('We are committed to excellence') = FAIL.\n"
+        "2. DATA SPECIFICITY: Real numbers, percentages, or dates required. "
+        "'Significant growth' without a figure = FAIL. "
+        "'Revenue grew 34% YoY to €2.4B' = PASS.\n"
+        "3. CHART QUALITY: Every chart slide must use a valid chart_function from the "
+        "provided schema and have real numeric data in params — not obvious placeholders "
+        "like [1, 2, 3] or ['A', 'B', 'C'] with round dummy values.\n"
+        "4. NO EMPTY SLIDES: A slide with only a title and empty bullets/charts = FAIL.\n"
+        "5. NARRATIVE ARC: Slides form a logical flow (Context → Evidence → Insights → "
+        "Actions or equivalent). Random topic order = FAIL.\n\n"
+
+        "PROCESS:\n"
+        "Step 1 — Write detailed reasoning: go through each slide by title, check each "
+        "criterion, cite exact evidence (e.g. 'Slide 4 bar_chart values: [100, 200, 300] "
+        "— suspiciously round, likely placeholder').\n"
+        "Step 2 — State your verdict: 'good' only if ALL criteria pass for ALL slides. "
+        "Otherwise 'bad'.\n"
+        "Step 3 — If 'bad', list issues as specific, actionable bullet points "
+        "(slide name + criterion + what exactly is wrong).\n\n"
+
+        "Return ONLY valid JSON:\n"
+        '{"reasoning": "...", "verdict": "good" | "bad", '
+        '"issues": ["Slide X (Title): criterion — specific problem", ...]}\n'
+        'When verdict is "good", issues must be [].'
+    )
+
+    user_msg = "\n\n".join([
+        f"PURPOSE: {purpose}",
+        f"USER PROMPT: {user_prompt or '(none)'}",
+        f"SOURCE DOCUMENT (first 2000 chars):\n{pdf_text[:2000] if pdf_text else '(none)'}",
+        f"CHART SCHEMA (valid functions & params):\n{chart_schema}",
+        f"PRESENTATION STRUCTURE TO EVALUATE:\n{structure_json[:10000]}",
+    ])
+
+    try:
+        response = client.chat.completions.create(
+            model=_JUDGE_MODEL,
+            max_tokens=1500,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_msg},
+            ],
+            temperature=0.1,
+            response_format={"type": "json_object"},
+        )
+        data = json.loads(response.choices[0].message.content.strip())
+        return {
+            "reasoning": data.get("reasoning", ""),
+            "verdict":   data.get("verdict", "good"),
+            "issues":    data.get("issues", []),
+        }
+    except Exception as exc:
+        logger.warning("Judge call failed (%s) — defaulting to 'good'", exc)
+        return {"reasoning": "", "verdict": "good", "issues": []}
+
+
+def generate_with_quality_loop(
+    pdf_text: str,
+    purpose: str,
+    user_prompt: str = "",
+    template_style: Optional[dict] = None,
+    clarifications: Optional[dict] = None,
+) -> tuple[PresentationStructure, dict]:
+    """
+    Generate a presentation with an LLM-as-a-judge quality loop.
+
+    Flow per iteration:
+      1. Generate structure (gpt-5.2)
+      2. Judge structure (gpt-5.2-pro): reasoning → binary verdict
+      3. If "good"  → return immediately
+         If "bad"   → inject issues as feedback and retry (up to _MAX_JUDGE_ITERATIONS)
+      4. After max iterations, return the last attempt regardless of verdict
+
+    Args:
+        pdf_text:       Extracted PDF text (may be empty).
+        purpose:        "business" | "school" | "scientific".
+        user_prompt:    Free-text instructions.
+        template_style: Template metadata for style-aware tone.
+        clarifications: Answers to clarifying questions.
+
+    Returns:
+        Tuple of (PresentationStructure, quality_report dict).
+        quality_report keys:
+          - attempts     (int):        How many generation calls were made.
+          - final_verdict (str):       "good" or "bad".
+          - history      (list[dict]): Per-attempt {attempt, verdict, reasoning, issues}.
+    """
+    chart_schema  = json.dumps(get_chart_schema_for_ai(), indent=2)
+    judge_feedback: Optional[list[str]] = None
+    history: list[dict] = []
+    structure: Optional[PresentationStructure] = None
+
+    for attempt in range(1, _MAX_JUDGE_ITERATIONS + 1):
+        logger.info("Generation attempt %d / %d", attempt, _MAX_JUDGE_ITERATIONS)
+
+        structure = generate_presentation_structure(
+            pdf_text=pdf_text,
+            purpose=purpose,
+            user_prompt=user_prompt,
+            template_style=template_style,
+            clarifications=clarifications,
+            judge_feedback=judge_feedback,
+        )
+
+        # Skip judging on the final allowed attempt — just return it
+        if attempt == _MAX_JUDGE_ITERATIONS:
+            logger.info("Max iterations reached — returning attempt %d", attempt)
+            history.append({"attempt": attempt, "verdict": "skipped",
+                            "reasoning": "Max iterations reached.", "issues": []})
+            break
+
+        judgment = _judge_structure(
+            structure_json=structure.model_dump_json(indent=2),
+            user_prompt=user_prompt,
+            pdf_text=pdf_text,
+            purpose=purpose,
+            chart_schema=chart_schema,
+        )
+
+        logger.info(
+            "Judge verdict: %s (attempt %d)\nReasoning: %s",
+            judgment["verdict"].upper(), attempt, judgment["reasoning"][:400],
+        )
+
+        history.append({
+            "attempt":   attempt,
+            "verdict":   judgment["verdict"],
+            "reasoning": judgment["reasoning"],
+            "issues":    judgment["issues"],
+        })
+
+        if judgment["verdict"] == "good":
+            logger.info("Quality check PASSED on attempt %d", attempt)
+            break
+
+        judge_feedback = judgment["issues"]
+        logger.warning(
+            "Quality check FAILED on attempt %d — %d issues — retrying",
+            attempt, len(judge_feedback),
+        )
+
+    final_verdict = history[-1]["verdict"] if history else "good"
+    quality_report = {
+        "attempts":      len(history),
+        "final_verdict": final_verdict if final_verdict != "skipped" else "good",
+        "history":       history,
+    }
+    return structure, quality_report
 
 
 # ============================================================================
@@ -529,7 +738,7 @@ def generate_clarifying_questions(
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5-nano",
             max_tokens=600,
             messages=[
                 {"role": "system", "content": system_prompt},

@@ -52,8 +52,8 @@ backend/=*
 *.log
 nohup.out
 
-# Kaleido temp files
-*.svg
+# Kaleido temp files (but keep the app icon SVG)
+!icon.svg
 
 # Claude internal
 .claude/

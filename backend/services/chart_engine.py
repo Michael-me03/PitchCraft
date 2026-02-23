@@ -776,11 +776,65 @@ def _mpl_to_png(fig) -> bytes:
     to fill the slot.
     """
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=DPI,
-                facecolor="white", edgecolor="none")
-    plt.close(fig)
+    try:
+        fig.savefig(buf, format="png", dpi=DPI,
+                    facecolor="white", edgecolor="none")
+    finally:
+        plt.close(fig)
     buf.seek(0)
     return buf.read()
+
+
+def set_chart_theme(accent_hex: str, is_dark: bool = False) -> None:
+    """
+    Update the Plotly 'pitchcraft' template to match the active template's accent color.
+
+    Call once per generation (from generate_pptx) so all Plotly charts produced
+    during that run use the corporate template's palette instead of the default
+    indigo-first palette.
+
+    Args:
+        accent_hex: Template primary accent color as CSS hex (e.g. '#00DBA9').
+        is_dark:    True when the template background is perceptually dark;
+                    adjusts background, axis, and grid colors for readability.
+    """
+    try:
+        accent_lower = accent_hex.lower()
+        # Accent-first palette: accent color leads, remaining slots filled from PALETTE
+        palette = [accent_hex] + [c for c in PALETTE if c.lower() != accent_lower][:9]
+
+        if is_dark:
+            bg_color   = "#1A1A2E"
+            text_color = "#E2E8F0"
+            grid_color = "#2D2D4E"
+            tick_color = "#94A3B8"
+            axis_color = "#3D3D5E"
+        else:
+            bg_color   = G["bg"]
+            text_color = G["700"]
+            grid_color = G["100"]
+            tick_color = G["500"]
+            axis_color = G["200"]
+
+        pio.templates["pitchcraft"].layout.update(
+            colorway=palette,
+            paper_bgcolor=bg_color,
+            plot_bgcolor=bg_color,
+            font=dict(color=text_color),
+            xaxis=dict(
+                linecolor=axis_color,
+                tickfont=dict(color=tick_color),
+                title_font=dict(color=tick_color),
+            ),
+            yaxis=dict(
+                gridcolor=grid_color,
+                linecolor=axis_color,
+                tickfont=dict(color=tick_color),
+                title_font=dict(color=tick_color),
+            ),
+        )
+    except Exception:
+        pass  # Never crash chart rendering due to a theme update failure
 
 
 def _card(ax, x, y, w, h,

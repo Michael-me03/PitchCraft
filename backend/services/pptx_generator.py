@@ -21,6 +21,8 @@ Design principles
 """
 
 import io
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 from pptx import Presentation
@@ -31,7 +33,9 @@ from pptx.dml.color import RGBColor
 from pptx.oxml.ns import qn
 
 from models.schemas import PresentationStructure, SlideContent, ChartSpec
-from services.chart_engine import render_chart
+from services.chart_engine import render_chart, set_chart_theme
+
+logger = logging.getLogger(__name__)
 
 
 # ─── Brand Font ───────────────────────────────────────────────────────────────
@@ -544,45 +548,98 @@ def _build_icon_list(slide, g: SlideGeometry, bullets: list) -> None:
             r.font.size = Pt(size); r.font.color.rgb = COLORS["text_body"]
 
 
-# ─── Chart Image Helper ───────────────────────────────────────────────────────
+# ─── Chart Image Helpers ──────────────────────────────────────────────────────
+
+_EMU_PER_INCH = 914_400
+_RENDER_DPI   = 300   # 2× HiDPI base for crisp text in all slot sizes
+
+
+def _compute_render_dims(max_w: int, max_h: int) -> tuple[int, int]:
+    """
+    Convert slot EMU dimensions to slot-proportional pixel dimensions.
+
+    Caps proportionally so the rendered image always matches the slot aspect
+    ratio — capping rw/rh independently would distort the chart when
+    python-pptx stretches the image to fill the fixed max_w × max_h slot.
+
+    Returns:
+        (render_width, render_height) in pixels, clamped to [400×280, 1920×1080].
+    """
+    inches_w   = max_w / _EMU_PER_INCH
+    inches_h   = max_h / _EMU_PER_INCH
+    slot_ratio = inches_w / inches_h if inches_h > 0 else 16 / 9
+
+    rw_cand = min(1920, round(inches_w * _RENDER_DPI))
+    rh_cand = round(rw_cand / slot_ratio)
+    if rh_cand > 1080:          # too tall → scale down from height
+        rh_cand = 1080
+        rw_cand = round(rh_cand * slot_ratio)
+
+    return max(400, rw_cand), max(280, rh_cand)
+
 
 def _render_chart(slide, chart_spec: ChartSpec,
-                  left: int, top: int, max_w: int, max_h: int):
+                  left: int, top: int, max_w: int, max_h: int) -> None:
     """
-    Render chart PNG at slot-proportional pixel dimensions.
+    Render a single chart PNG at slot-proportional dimensions and place it on the slide.
 
-    Uses 300 DPI (2× HiDPI base) scaled to the actual slot size so that
-    text labels, tick marks, and legends are legible at every grid density
-    — from a full-body single chart to a 3×2 six-chart dashboard.
-
-    The chart image is always placed at max_w × max_h in the slide,
-    so python-pptx fills the slot with zero letterboxing.
+    Uses 300 DPI scaled to the actual slot size so labels and tick marks are
+    legible at every grid density — from a full-body chart to a 3×2 dashboard.
+    Falls back to an error text box if rendering fails (never crashes the deck).
     """
-    # ── Slot-proportional pixel dimensions ────────────────────────────────────
-    _EMU_PER_INCH = 914_400
-    _RENDER_DPI   = 300        # 2× HiDPI base (150 DPI) for crisp text
-
+    rw, rh = _compute_render_dims(max_w, max_h)
     try:
-        inches_w   = max_w / _EMU_PER_INCH
-        inches_h   = max_h / _EMU_PER_INCH
-        slot_ratio = inches_w / inches_h if inches_h > 0 else 16 / 9
-
-        # Cap proportionally so the rendered image always matches the slot ratio.
-        # Capping rw and rh independently would change the aspect ratio and cause
-        # PowerPoint to stretch the image when filling the fixed max_w × max_h slot.
-        rw_cand = min(1920, round(inches_w * _RENDER_DPI))
-        rh_cand = round(rw_cand / slot_ratio)
-        if rh_cand > 1080:          # too tall → scale down from height
-            rh_cand = 1080
-            rw_cand = round(rh_cand * slot_ratio)
-        rw = max(400, rw_cand)
-        rh = max(280, rh_cand)
-
         img_bytes = render_chart(chart_spec.chart_function, chart_spec.params, rw, rh)
         slide.shapes.add_picture(io.BytesIO(img_bytes), left, top, max_w, max_h)
     except Exception as exc:
+        logger.error("Chart render failed [%s]: %s", chart_spec.chart_function, exc)
         txb = _textbox(slide, left, top, max_w, max_h)
-        txb.text_frame.text = f"[Chart error: {exc}]"
+        txb.text_frame.text = f"[Chart error: {chart_spec.chart_function}]"
+
+
+def _render_charts_parallel(
+    chart_specs: list[ChartSpec],
+    slots: list[tuple[int, int, int, int]],
+) -> list[bytes | None]:
+    """
+    Render multiple charts concurrently using a thread pool.
+
+    chart_engine.render_chart() is thread-safe: it writes render dimensions to
+    threading.local() (_ctx), so each worker thread has its own isolated context.
+
+    Args:
+        chart_specs: Chart specifications to render.
+        slots:       Corresponding (left, top, width, height) tuples in EMUs.
+
+    Returns:
+        Index-aligned list of PNG bytes, or None for any chart that failed.
+    """
+    n       = len(chart_specs)
+    results: list[bytes | None] = [None] * n
+
+    def _worker(idx: int, spec: ChartSpec,
+                slot: tuple[int, int, int, int]) -> tuple[int, bytes | None]:
+        _, _, max_w, max_h = slot
+        rw, rh = _compute_render_dims(max_w, max_h)
+        try:
+            return idx, render_chart(spec.chart_function, spec.params, rw, rh)
+        except Exception as exc:
+            logger.error("Chart render failed [%s]: %s", spec.chart_function, exc)
+            return idx, None
+
+    if n == 1:
+        results[0] = _worker(0, chart_specs[0], slots[0])[1]
+    else:
+        with ThreadPoolExecutor(max_workers=min(4, n)) as executor:
+            future_map = {
+                executor.submit(_worker, i, spec, slot): i
+                for i, (spec, slot) in enumerate(zip(chart_specs, slots))
+            }
+            for future in as_completed(future_map):
+                idx, img = future.result()
+                results[idx] = img
+
+    return results
 
 
 # ─── Layout Discovery ─────────────────────────────────────────────────────────
@@ -940,7 +997,7 @@ def _build_chart_slide(slide, content: SlideContent, g: SlideGeometry):
 
 
 def _build_multi_chart_slide(slide, content: SlideContent, g: SlideGeometry):
-    """Dashboard slide: 1–6 charts arranged in a gap-aware grid."""
+    """Dashboard slide: 1–6 charts arranged in a gap-aware grid, rendered in parallel."""
     _remove_all_placeholders(slide)
     _slide_frame(slide, g, content.title)
 
@@ -956,41 +1013,50 @@ def _build_multi_chart_slide(slide, content: SlideContent, g: SlideGeometry):
     gx = g.w(0.020)   # horizontal gap
     gy = g.h(0.025)   # vertical gap
 
+    # ── Build slot list: (left, top, width, height) ───────────────────────────
     if n == 1:
-        _render_chart(slide, charts[0], bl, bt, bw, bh)
+        slots = [(bl, bt, bw, bh)]
 
     elif n == 2:
         cw = (bw - gx) // 2
-        _render_chart(slide, charts[0], bl,             bt, cw, bh)
-        _render_chart(slide, charts[1], bl + cw + gx,   bt, cw, bh)
+        slots = [
+            (bl,           bt, cw, bh),
+            (bl + cw + gx, bt, cw, bh),
+        ]
 
     elif n == 3:
         cw = (bw - 2 * gx) // 3
-        for i in range(3):
-            _render_chart(slide, charts[i], bl + i * (cw + gx), bt, cw, bh)
+        slots = [(bl + i * (cw + gx), bt, cw, bh) for i in range(3)]
 
     elif n == 4:
         cw = (bw - gx) // 2
         ch = (bh - gy) // 2
-        positions = [
-            (bl,             bt),
-            (bl + cw + gx,   bt),
-            (bl,             bt + ch + gy),
-            (bl + cw + gx,   bt + ch + gy),
+        slots = [
+            (bl,           bt,           cw, ch),
+            (bl + cw + gx, bt,           cw, ch),
+            (bl,           bt + ch + gy, cw, ch),
+            (bl + cw + gx, bt + ch + gy, cw, ch),
         ]
-        for i in range(4):
-            _render_chart(slide, charts[i], *positions[i], cw, ch)
 
     else:   # 5–6: 3 × 2 grid
         cw = (bw - 2 * gx) // 3
         ch = (bh - gy) // 2
-        for i, chart in enumerate(charts[:6]):
-            col = i % 3
-            row = i // 3
-            _render_chart(slide, chart,
-                          bl + col * (cw + gx),
-                          bt + row * (ch + gy),
-                          cw, ch)
+        slots = [
+            (bl + (i % 3) * (cw + gx), bt + (i // 3) * (ch + gy), cw, ch)
+            for i in range(min(n, 6))
+        ]
+
+    charts_to_render = charts[:len(slots)]
+
+    # ── Render all charts concurrently, then place sequentially ───────────────
+    rendered = _render_charts_parallel(charts_to_render, slots)
+
+    for img_bytes, chart_spec, (left, top, w, h) in zip(rendered, charts_to_render, slots):
+        if img_bytes is not None:
+            slide.shapes.add_picture(io.BytesIO(img_bytes), left, top, w, h)
+        else:
+            txb = _textbox(slide, left, top, w, h)
+            txb.text_frame.text = f"[Chart error: {chart_spec.chart_function}]"
 
     if content.speaker_notes:
         slide.notes_slide.notes_text_frame.text = content.speaker_notes
@@ -2014,6 +2080,11 @@ def generate_pptx(
     """
     global COLORS
     COLORS = _build_template_palette(template_colors) if template_colors else _DEFAULT_COLORS
+
+    # Sync Plotly chart theme with the active template's accent color
+    if template_colors and "accent" in template_colors:
+        bg_hex  = template_colors.get("bg", "#FFFFFF")
+        set_chart_theme(template_colors["accent"], is_dark=_is_dark_color(bg_hex))
 
     prs          = Presentation(io.BytesIO(template_bytes))
     logo_safe_y  = _detect_logo_safe_y(prs)

@@ -27,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
 
 from services.pdf_parser import extract_text_from_pdf
-from services.ai_service import generate_presentation_structure, generate_clarifying_questions
+from services.ai_service import generate_with_quality_loop, generate_clarifying_questions
 from services.pptx_generator import generate_pptx
 from services.template_generator import generate_template_pptx, get_template_catalog, TEMPLATE_CATALOG
 
@@ -35,7 +35,7 @@ app = FastAPI(title="PitchCraft API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -241,12 +241,26 @@ async def generate_presentation(
             pass
 
     try:
-        structure = generate_presentation_structure(
+        structure, quality_report = generate_with_quality_loop(
             pdf_text=pdf_text,
             purpose=purpose,
             user_prompt=effective_prompt,
             template_style=template_style,
             clarifications=parsed_clarifications,
+        )
+        print(
+            f"\n{'='*60}\n"
+            f"QUALITY LOOP REPORT\n"
+            f"  Attempts:      {quality_report['attempts']}\n"
+            f"  Final verdict: {quality_report['final_verdict'].upper()}\n"
+            + "".join(
+                f"  [{h['attempt']}] {h['verdict'].upper()}"
+                + (f" — {len(h['issues'])} issue(s)\n" if h['issues'] else "\n")
+                + (f"      Reasoning: {h['reasoning'][:300]}...\n" if h['reasoning'] else "")
+                + "".join(f"      • {iss}\n" for iss in h['issues'])
+                for h in quality_report['history']
+            )
+            + f"{'='*60}\n"
         )
     except Exception as e:
         traceback.print_exc()

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Background: deep navy rounded square -->
+  <rect width="1024" height="1024" rx="220" fill="#0A0F1E"/>
+
+  <!-- Slide card -->
+  <rect x="148" y="200" width="728" height="500" rx="32" fill="#141B2D"/>
+  <rect x="148" y="200" width="728" height="14" rx="7" fill="#00DBA9"/>
+
+  <!-- Title lines (left side) -->
+  <rect x="210" y="272" width="230" height="18" rx="9" fill="#1E3A5F"/>
+  <rect x="210" y="302" width="170" height="12" rx="6" fill="#162D4A"/>
+  <rect x="210" y="326" width="195" height="12" rx="6" fill="#162D4A"/>
+
+  <!-- KPI card 1 -->
+  <rect x="210" y="380" width="245" height="90" rx="14" fill="#1A2540"/>
+  <rect x="218" y="388" width="8" height="74" rx="4" fill="#00DBA9"/>
+  <rect x="238" y="400" width="120" height="16" rx="8" fill="#1E3A5F"/>
+  <rect x="238" y="426" width="80" height="11" rx="5.5" fill="#00DBA9" opacity="0.55"/>
+
+  <!-- KPI card 2 -->
+  <rect x="210" y="484" width="245" height="90" rx="14" fill="#1A2540"/>
+  <rect x="218" y="492" width="8" height="74" rx="4" fill="#6366F1"/>
+  <rect x="238" y="504" width="140" height="16" rx="8" fill="#1E3A5F"/>
+  <rect x="238" y="530" width="95" height="11" rx="5.5" fill="#6366F1" opacity="0.55"/>
+
+  <!-- Chart bars (right side) -->
+  <rect x="530" y="450" width="72" height="210" rx="10" fill="#00DBA9" opacity="0.75"/>
+  <rect x="628" y="380" width="72" height="280" rx="10" fill="#00DBA9"/>
+  <rect x="726" y="415" width="72" height="245" rx="10" fill="#00DBA9" opacity="0.85"/>
+
+  <!-- Trend line over bars -->
+  <polyline
+    points="566,430  664,362  762,395"
+    stroke="#F59E0B"
+    stroke-width="9"
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="566" cy="430" r="12" fill="#F59E0B"/>
+  <circle cx="664" cy="362" r="12" fill="#F59E0B"/>
+  <circle cx="762" cy="395" r="12" fill="#F59E0B"/>
+
+  <!-- Bottom x-axis line -->
+  <rect x="210" y="662" width="604" height="3" rx="1.5" fill="#1E2D4A"/>
+
+  <!-- "PC" wordmark at bottom right -->
+  <text
+    x="804" y="870"
+    font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+    font-size="72"
+    font-weight="700"
+    fill="#00DBA9"
+    text-anchor="middle"
+    letter-spacing="-2"
+  >PC</text>
+</svg>
