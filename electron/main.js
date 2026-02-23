@@ -59,9 +59,38 @@ function backendDir() {
 // ============================================================================
 
 function loadApiKey() {
+  // 1. Check Electron userData (from previous setup)
   try {
-    if (fs.existsSync(KEY_FILE)) return fs.readFileSync(KEY_FILE, 'utf8').trim() || null
+    if (fs.existsSync(KEY_FILE)) {
+      const k = fs.readFileSync(KEY_FILE, 'utf8').trim()
+      if (k) return k
+    }
   } catch {}
+
+  // 2. Auto-detect from backend/.env (no copy-paste needed)
+  const envLocations = [
+    path.join(resourcesPath(), 'backend', '.env'),      // packaged app
+    path.join(__dirname, '..', 'backend', '.env'),       // dev mode
+  ]
+  for (const envPath of envLocations) {
+    try {
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf8')
+        const match = content.match(/OPENAI_API_KEY\s*=\s*(.+)/)
+        if (match) {
+          const key = match[1].trim()
+          if (key && key !== 'sk-your-api-key-here') {
+            log(`API key loaded from ${envPath}`)
+            return key
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 3. Check environment variable
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY
+
   return null
 }
 

@@ -26,10 +26,36 @@ if curl -sf "http://127.0.0.1:$PORT/api/health" &>/dev/null; then
     exit 0
 fi
 
-# ── First launch: request API key ────────────────────────────────────────────
-if [ ! -s "$KEY_FILE" ]; then
+# ── Find API key: auto-detect from .env, then ask only if needed ──────────────
+API_KEY=""
+
+# 1. Check saved key from previous launch
+if [ -s "$KEY_FILE" ]; then
+    API_KEY="$(cat "$KEY_FILE")"
+fi
+
+# 2. Auto-detect from backend/.env (no copy-paste needed)
+if [ -z "$API_KEY" ]; then
+    for ENV_PATH in "$BACKEND/.env" "$CONTENTS/../../../backend/.env"; do
+        if [ -f "$ENV_PATH" ]; then
+            FOUND=$(grep -oP 'OPENAI_API_KEY\s*=\s*\K.+' "$ENV_PATH" 2>/dev/null \
+                 || sed -n 's/^OPENAI_API_KEY\s*=\s*//p' "$ENV_PATH" 2>/dev/null)
+            FOUND="$(echo "$FOUND" | tr -d '[:space:]')"
+            if [ -n "$FOUND" ] && [ "$FOUND" != "sk-your-api-key-here" ]; then
+                API_KEY="$FOUND"
+                printf '%s' "$API_KEY" > "$KEY_FILE"
+                chmod 600 "$KEY_FILE"
+                notify "API key loaded from .env"
+                break
+            fi
+        fi
+    done
+fi
+
+# 3. Last resort: ask the user
+if [ -z "$API_KEY" ]; then
     API_KEY=$(osascript 2>/dev/null <<'APPLESCRIPT'
-set r to display dialog "Welcome to PitchCraft! 👋" & return & return & "Enter your OpenAI API Key to get started:" default answer "" buttons {"Cancel", "Continue"} default button "Continue" with title "PitchCraft" with icon note
+set r to display dialog "Welcome to PitchCraft!" & return & return & "Enter your OpenAI API Key to get started:" default answer "" buttons {"Cancel", "Continue"} default button "Continue" with title "PitchCraft" with icon note
 if button returned of r is "Cancel" then return ""
 return text returned of r
 APPLESCRIPT
