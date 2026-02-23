@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PitchCraft Setup</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0A0F1E;
+      color: #E2E8F0;
+      font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+
+    /* Logo */
+    .logo {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #0D2137 0%, #0A1628 100%);
+      border: 1.5px solid #1E3A5F;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 24px rgba(0,219,169,0.15);
+    }
+
+    .logo-text {
+      font-size: 20px;
+      font-weight: 800;
+      color: #00DBA9;
+      letter-spacing: -1px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #F1F5F9;
+      margin-bottom: 6px;
+    }
+
+    p {
+      font-size: 13px;
+      color: #64748B;
+      margin-bottom: 28px;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .input-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 380px;
+      margin-bottom: 12px;
+      -webkit-app-region: no-drag;
+    }
+
+    input[type="password"],
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 44px 12px 14px;
+      background: #111827;
+      border: 1.5px solid #1E293B;
+      border-radius: 10px;
+      color: #F1F5F9;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .2s;
+      font-family: inherit;
+    }
+
+    input:focus { border-color: #00DBA9; }
+    input::placeholder { color: #374151; }
+
+    .toggle-eye {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #475569;
+      font-size: 16px;
+      -webkit-app-region: no-drag;
+    }
+    .toggle-eye:hover { color: #00DBA9; }
+
+    .btn {
+      width: 100%;
+      max-width: 380px;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s;
+      -webkit-app-region: no-drag;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: #00DBA9;
+      color: #0A0F1E;
+      margin-bottom: 10px;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .link {
+      font-size: 12px;
+      color: #475569;
+      text-align: center;
+      -webkit-app-region: no-drag;
+    }
+    .link a {
+      color: #00DBA9;
+      text-decoration: none;
+    }
+    .link a:hover { text-decoration: underline; }
+
+    .error {
+      color: #EF4444;
+      font-size: 12px;
+      margin-top: -6px;
+      margin-bottom: 10px;
+      max-width: 380px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo"><span class="logo-text">PC</span></div>
+
+  <h1>Welcome to PitchCraft</h1>
+  <p>Enter your OpenAI API key to start generating<br>boardroom-quality presentations.</p>
+
+  <div class="input-wrap">
+    <input type="password" id="key" placeholder="sk-..." autocomplete="off" spellcheck="false"/>
+    <span class="toggle-eye" id="toggle">👁</span>
+  </div>
+
+  <p class="error" id="err">Please enter a valid API key (starts with sk-).</p>
+
+  <button class="btn btn-primary" id="start" disabled>Get Started</button>
+
+  <p class="link">
+    Don't have a key? <a href="#" id="getKey">Get one at platform.openai.com →</a>
+  </p>
+
+  <script>
+    const input  = document.getElementById('key')
+    const btn    = document.getElementById('start')
+    const toggle = document.getElementById('toggle')
+    const err    = document.getElementById('err')
+
+    input.addEventListener('input', () => {
+      const v = input.value.trim()
+      btn.disabled = v.length < 10
+      err.style.display = 'none'
+    })
+
+    toggle.addEventListener('click', () => {
+      input.type = input.type === 'password' ? 'text' : 'password'
+    })
+
+    btn.addEventListener('click', () => {
+      const key = input.value.trim()
+      if (!key.startsWith('sk-') && !key.startsWith('sk-proj-')) {
+        err.style.display = 'block'
+        return
+      }
+      window.pitchcraft.submitApiKey(key)
+    })
+
+    document.getElementById('getKey').addEventListener('click', (e) => {
+      e.preventDefault()
+      // Open in system browser via shell
+      const a = document.createElement('a')
+      a.href = 'https://platform.openai.com/api-keys'
+      a.target = '_blank'
+      a.click()
+    })
+
+    // Allow Enter key
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !btn.disabled) btn.click()
+    })
+
+    input.focus()
+  </script>
+</body>
+</html>

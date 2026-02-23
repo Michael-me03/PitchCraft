@@ -1,0 +1,64 @@
+{
+  "name": "pitchcraft",
+  "version": "1.0.0",
+  "description": "AI Presentation Engine — Turn your template into a boardroom deck in seconds",
+  "main": "main.js",
+  "author": "Michael Meier",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.pitchcraft.app",
+    "productName": "PitchCraft",
+    "copyright": "Copyright © 2026 Michael Meier",
+    "directories": {
+      "buildResources": "assets",
+      "output": "../dist-electron"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "setup.html",
+      "splash.html"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": ["**/*", "!__pycache__/**", "!*.pyc", "!.venv/**", "!.env", "!*.pptx"]
+      },
+      {
+        "from": "resources/venv",
+        "to": "venv"
+      },
+      {
+        "from": "../frontend/dist",
+        "to": "web"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/AppIcon.icns",
+      "identity": null,
+      "gatekeeperAssess": false,
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] }
+      ]
+    },
+    "dmg": {
+      "title": "PitchCraft",
+      "iconSize": 100,
+      "window": { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 130, "y": 200, "type": "file" },
+        { "x": 410, "y": 200, "type": "link", "path": "/Applications" }
+      ]
+    }
+  }
+}

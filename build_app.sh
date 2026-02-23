@@ -1,16 +1,13 @@
 #!/bin/bash
 # ============================================================================
-# build_app.sh — Build PitchCraft.app and PitchCraft.dmg
+# build_app.sh — Build PitchCraft Electron App + DMG
 # ============================================================================
-# Run this script once to produce a fully self-contained macOS app:
+# Run once to produce a fully self-contained macOS Electron app:
 #
 #   chmod +x build_app.sh && ./build_app.sh
 #
-# Output:
-#   PitchCraft.app   — drag to /Applications to install
-#   PitchCraft.dmg   — distribute or double-click to mount and install
-#
-# Requirements: macOS, Python 3.11+, Node 18+
+# Output:  dist-electron/PitchCraft-1.0.0.dmg
+# Requires: macOS, Python 3.11+, Node 18+
 # ============================================================================
 
 set -euo pipefail
@@ -18,130 +15,91 @@ set -euo pipefail
 BOLD="\033[1m"; TEAL="\033[36m"; GREEN="\033[32m"
 RED="\033[31m"; YELLOW="\033[33m"; RESET="\033[0m"
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP="$SCRIPT_DIR/PitchCraft.app"
-RESOURCES="$APP/Contents/Resources"
-MACOS="$APP/Contents/MacOS"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-step() { echo -e "\n${BOLD}${TEAL}▶ $1${RESET}"; }
-ok()   { echo -e "  ${GREEN}✓${RESET} $1"; }
-warn() { echo -e "  ${YELLOW}⚠${RESET}  $1"; }
-die()  { echo -e "  ${RED}✗ $1${RESET}"; exit 1; }
+step() { echo -e "\n${BOLD}${TEAL}▶  $1${RESET}"; }
+ok()   { echo -e "  ${GREEN}✓${RESET}  $1"; }
+warn() { echo -e "  ${YELLOW}⚠${RESET}   $1"; }
+die()  { echo -e "  ${RED}✗  $1${RESET}"; exit 1; }
 
 echo -e "${TEAL}${BOLD}"
-echo "  ╔═══════════════════════════════════════╗"
-echo "  ║   PitchCraft  ·  App Builder  v1.0    ║"
-echo "  ╚═══════════════════════════════════════╝"
+echo "  ╔════════════════════════════════════════════╗"
+echo "  ║   PitchCraft  ·  Electron Builder  v1.0   ║"
+echo "  ╚════════════════════════════════════════════╝"
 echo -e "${RESET}"
 
 # ── Prerequisites ─────────────────────────────────────────────────────────────
 step "Checking prerequisites"
 command -v python3 &>/dev/null || die "Python 3 required — install from python.org"
-command -v node    &>/dev/null || die "Node.js required — install from nodejs.org"
+command -v node    &>/dev/null || die "Node.js 18+ required — install from nodejs.org"
 command -v npm     &>/dev/null || die "npm required"
-
-PYTHON_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-ok "Python $PYTHON_VER"
-ok "Node $(node -v)"
+ok "Python $(python3 --version | cut -d' ' -f2)"
+ok "Node $(node -v) / npm $(npm -v)"
 
 # ── Step 1: Build React frontend ──────────────────────────────────────────────
 step "Building React frontend"
-cd "$SCRIPT_DIR/frontend"
+cd "$ROOT/frontend"
 npm install --silent
 npm run build
-ok "Frontend built → frontend/dist/"
+ok "Built → frontend/dist/  ($(du -sh dist | cut -f1))"
 
-# ── Step 2: Prepare .app Resources ───────────────────────────────────────────
-step "Preparing .app bundle"
-mkdir -p "$RESOURCES" "$MACOS"
-
-# Copy pre-built frontend into the bundle
-rm -rf "$RESOURCES/web"
-cp -r "$SCRIPT_DIR/frontend/dist" "$RESOURCES/web"
-ok "Frontend copied → Resources/web/"
-
-# Copy backend source (exclude dev artifacts)
-rm -rf "$RESOURCES/backend"
-rsync -a \
-    --exclude='__pycache__' \
-    --exclude='*.pyc' \
-    --exclude='.venv' \
-    --exclude='.env' \
-    --exclude='*.pptx' \
-    "$SCRIPT_DIR/backend/" "$RESOURCES/backend/"
-ok "Backend copied → Resources/backend/"
-
-# ── Step 3: Install Python dependencies into bundled venv ────────────────────
-step "Installing Python dependencies into bundle"
-VENV="$RESOURCES/venv"
+# ── Step 2: Install Python dependencies into Electron resources ───────────────
+step "Setting up bundled Python environment"
+VENV="$ROOT/electron/resources/venv"
 
 if [ -d "$VENV" ]; then
-    warn "Existing venv found — updating packages"
+  warn "Existing venv found — upgrading packages"
 else
-    python3 -m venv "$VENV"
-    ok "Virtual environment created"
+  python3 -m venv "$VENV"
+  ok "Virtual environment created"
 fi
 
 "$VENV/bin/pip" install --upgrade pip --quiet
-"$VENV/bin/pip" install -r "$SCRIPT_DIR/backend/requirements.txt" --quiet
-ok "All dependencies installed ($(du -sh "$VENV" | cut -f1))"
+"$VENV/bin/pip" install -r "$ROOT/backend/requirements.txt" --quiet
+ok "Dependencies installed  ($(du -sh "$VENV" | cut -f1))"
 
-# ── Step 4: Make launcher executable ─────────────────────────────────────────
-chmod +x "$MACOS/PitchCraft"
-ok "Launcher is executable"
+# ── Step 3: Copy icon to Electron assets ─────────────────────────────────────
+step "Preparing Electron assets"
+mkdir -p "$ROOT/electron/assets"
 
-# ── Step 5: Regenerate icon ───────────────────────────────────────────────────
-step "Generating app icon"
-if [ -f "$SCRIPT_DIR/icon.svg" ]; then
-    bash "$SCRIPT_DIR/create_icon.sh" 2>/dev/null && ok "AppIcon.icns generated" || warn "Icon generation failed — using existing"
-else
-    warn "icon.svg not found — skipping icon generation"
+if [ -f "$ROOT/PitchCraft.app/Contents/Resources/AppIcon.icns" ]; then
+  cp "$ROOT/PitchCraft.app/Contents/Resources/AppIcon.icns" \
+     "$ROOT/electron/assets/AppIcon.icns"
+  ok "AppIcon.icns copied"
+elif [ -f "$ROOT/icon.svg" ]; then
+  warn "No .icns found — regenerating from icon.svg"
+  bash "$ROOT/create_icon.sh" 2>/dev/null || true
+  cp "$ROOT/PitchCraft.app/Contents/Resources/AppIcon.icns" \
+     "$ROOT/electron/assets/AppIcon.icns" 2>/dev/null || warn "Icon generation failed"
 fi
 
-# ── Step 6: App bundle size report ───────────────────────────────────────────
-step "Bundle size"
-echo "  $(du -sh "$APP" | cut -f1)  PitchCraft.app"
-echo "  $(du -sh "$VENV" | cut -f1)  └─ venv (Python dependencies)"
+# ── Step 4: Install Electron dependencies ─────────────────────────────────────
+step "Installing Electron & electron-builder"
+cd "$ROOT/electron"
+npm install --silent
+ok "node_modules ready"
 
-# ── Step 7: Create DMG ───────────────────────────────────────────────────────
-step "Creating DMG"
-DMG="$SCRIPT_DIR/PitchCraft.dmg"
-STAGING=$(mktemp -d)
-
-# Copy .app into staging area
-cp -r "$APP" "$STAGING/"
-
-# Add /Applications shortcut for drag-to-install UX
-ln -s /Applications "$STAGING/Applications"
-
-# Create a background-less but cleanly sized DMG
-rm -f "$DMG"
-hdiutil create \
-    -volname "PitchCraft" \
-    -srcfolder "$STAGING" \
-    -ov \
-    -format UDZO \
-    -imagekey zlib-level=9 \
-    "$DMG" \
-    2>/dev/null
-
-rm -rf "$STAGING"
-
-DMG_SIZE=$(du -sh "$DMG" | cut -f1)
-ok "PitchCraft.dmg created (${DMG_SIZE})"
-
-# ── Done ──────────────────────────────────────────────────────────────────────
-echo ""
-echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════╗"
-echo   "║           Build complete! 🎉             ║"
-echo -e "╚══════════════════════════════════════════╝${RESET}"
-echo ""
-echo "  PitchCraft.app  — drag to /Applications"
-echo "  PitchCraft.dmg  — share or distribute  ($DMG_SIZE)"
-echo ""
-echo "  First launch will ask for your OpenAI API key."
-echo "  The key is stored securely in ~/.pitchcraft/"
+# ── Step 5: Build with electron-builder ──────────────────────────────────────
+step "Building with electron-builder (this takes a minute...)"
+npm run build
 echo ""
 
-# Open Finder at DMG location
-open -R "$DMG" 2>/dev/null || true
+# ── Step 6: Report ────────────────────────────────────────────────────────────
+DMG=$(ls "$ROOT/dist-electron/"*.dmg 2>/dev/null | head -1)
+
+if [ -n "$DMG" ]; then
+  SIZE=$(du -sh "$DMG" | cut -f1)
+  echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════╗"
+  echo   "║           Build complete! 🎉                ║"
+  echo -e "╚══════════════════════════════════════════════╝${RESET}"
+  echo ""
+  echo -e "  DMG:  ${BOLD}$(basename "$DMG")${RESET}  (${SIZE})"
+  echo "  Path: $DMG"
+  echo ""
+  echo "  Install: double-click the DMG, drag to Applications"
+  echo "  First launch: enter your OpenAI API key"
+  echo ""
+  open -R "$DMG" 2>/dev/null || true
+else
+  warn "DMG not found in dist-electron/ — check output above"
+fi
