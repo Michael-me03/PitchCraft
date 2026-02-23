@@ -1,81 +1,81 @@
 #!/bin/bash
 # ============================================================================
-# PitchCraft.app — macOS Launcher
-# Starts the Docker Compose stack and opens the app in the browser.
+# PitchCraft.app — Standalone macOS Launcher
+# Starts the bundled FastAPI backend (no Docker required).
+# The backend also serves the pre-built React frontend at the same port.
 # ============================================================================
 
-# Navigate to project root (3 levels up from Contents/MacOS/)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+CONTENTS="$(cd "$(dirname "$0")/.." && pwd)"
+RESOURCES="$CONTENTS/Resources"
+PYTHON="$RESOURCES/venv/bin/python3"
+BACKEND="$RESOURCES/backend"
+PORT=8765
+
+# API key stored securely in user home — never inside the .app bundle
+CONFIG_DIR="$HOME/.pitchcraft"
+KEY_FILE="$CONFIG_DIR/api_key"
+mkdir -p "$CONFIG_DIR"
 
 notify() {
-    osascript -e "display notification \"$1\" with title \"PitchCraft\" $( [ -n "${2:-}" ] && echo "subtitle \"$2\"" )" 2>/dev/null || true
+    osascript -e "display notification \"$1\" with title \"PitchCraft\" ${2:+subtitle \"$2\"}" 2>/dev/null || true
 }
 
-dialog() {
-    osascript -e "display dialog \"$1\" buttons {\"$2\"} default button \"$2\" with icon ${3:-note} with title \"PitchCraft\"" 2>/dev/null
-}
-
-# ── Check Docker is installed ─────────────────────────────────────────────────
-if ! command -v docker &>/dev/null; then
-    osascript <<'APPLESCRIPT' 2>/dev/null
-display dialog "Docker Desktop is required to run PitchCraft.\n\nPlease install it from docker.com and try again." buttons {"Open docker.com", "Cancel"} default button "Open docker.com" with icon stop with title "PitchCraft"
-if button returned of result is "Open docker.com" then
-    open location "https://www.docker.com/products/docker-desktop"
-end if
-APPLESCRIPT
-    exit 1
+# ── Already running? Just open the browser ───────────────────────────────────
+if curl -sf "http://127.0.0.1:$PORT/api/health" &>/dev/null; then
+    open "http://127.0.0.1:$PORT"
+    exit 0
 fi
 
-# ── Check Docker daemon is running ────────────────────────────────────────────
-if ! docker info &>/dev/null 2>&1; then
-    notify "Starting Docker Desktop..." "This may take a moment"
-    open -a "Docker Desktop" 2>/dev/null || open -a "Docker" 2>/dev/null || true
-    echo "Waiting for Docker to start..."
-    for i in $(seq 1 45); do
-        sleep 1
-        docker info &>/dev/null 2>&1 && break
-        if [ "$i" -eq 45 ]; then
-            dialog "Docker Desktop could not start.\nPlease launch it manually and try again." "OK" "stop"
-            exit 1
-        fi
-    done
-fi
-
-# ── Check / create .env with API key ─────────────────────────────────────────
-if [ ! -f "$PROJECT_DIR/backend/.env" ]; then
+# ── First launch: request API key ────────────────────────────────────────────
+if [ ! -s "$KEY_FILE" ]; then
     API_KEY=$(osascript 2>/dev/null <<'APPLESCRIPT'
-set dialogResult to display dialog "Welcome to PitchCraft!\n\nEnter your OpenAI API Key to get started:" default answer "" buttons {"Cancel", "Start"} default button "Start" with title "PitchCraft Setup" with icon note
-if button returned of dialogResult is "Cancel" then return ""
-return text returned of dialogResult
+set r to display dialog "Welcome to PitchCraft! 👋" & return & return & "Enter your OpenAI API Key to get started:" default answer "" buttons {"Cancel", "Continue"} default button "Continue" with title "PitchCraft" with icon note
+if button returned of r is "Cancel" then return ""
+return text returned of r
 APPLESCRIPT
 )
-    if [ -z "$API_KEY" ]; then
-        exit 0
-    fi
-    echo "OPENAI_API_KEY=$API_KEY" > "$PROJECT_DIR/backend/.env"
+    [[ -z "$API_KEY" ]] && exit 0
+    printf '%s' "$API_KEY" > "$KEY_FILE"
+    chmod 600 "$KEY_FILE"
     notify "API key saved" "Starting PitchCraft..."
 fi
 
-# ── Start (or restart) Docker Compose services ───────────────────────────────
-notify "Starting PitchCraft..." "Building containers on first launch"
-cd "$PROJECT_DIR"
+# ── Verify bundled Python exists ─────────────────────────────────────────────
+if [ ! -x "$PYTHON" ]; then
+    osascript -e 'display dialog "PitchCraft installation is incomplete.\n\nPlease run build_app.sh to rebuild the app." buttons {"OK"} default button "OK" with icon stop with title "PitchCraft"' 2>/dev/null
+    exit 1
+fi
 
-docker compose up -d --build 2>&1
+# ── Start backend ─────────────────────────────────────────────────────────────
+notify "Starting PitchCraft..."
 
-# ── Wait for backend health check ─────────────────────────────────────────────
-notify "Waiting for services..." "Almost ready"
+export OPENAI_API_KEY="$(cat "$KEY_FILE")"
+cd "$BACKEND"
+
+"$PYTHON" -m uvicorn main:app \
+    --host 127.0.0.1 \
+    --port "$PORT" \
+    --log-level warning \
+    >> "$CONFIG_DIR/pitchcraft.log" 2>&1 &
+
+BACKEND_PID=$!
+echo "$BACKEND_PID" > "$CONFIG_DIR/backend.pid"
+
+# ── Wait for backend health check ────────────────────────────────────────────
 for i in $(seq 1 60); do
     sleep 1
-    if curl -sf http://localhost:8000/api/health &>/dev/null; then
-        break
-    fi
+    curl -sf "http://127.0.0.1:$PORT/api/health" &>/dev/null && break
     if [ "$i" -eq 60 ]; then
-        dialog "PitchCraft could not start.\n\nCheck that port 8000 is free and try again." "OK" "stop"
+        osascript -e 'display dialog "PitchCraft could not start.\n\nCheck ~/pitchcraft/pitchcraft.log for details." buttons {"OK"} default button "OK" with icon stop with title "PitchCraft"' 2>/dev/null
+        kill "$BACKEND_PID" 2>/dev/null
         exit 1
     fi
 done
 
 # ── Open in browser ───────────────────────────────────────────────────────────
-open "http://localhost:3000"
+open "http://127.0.0.1:$PORT"
 notify "PitchCraft is ready!" "Opened in your browser"
+
+# Keep process alive (closing the app stops the server)
+trap "kill '$BACKEND_PID' 2>/dev/null; rm -f '$CONFIG_DIR/backend.pid'" EXIT
+wait "$BACKEND_PID"

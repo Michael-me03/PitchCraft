@@ -20,11 +20,13 @@ import json
 import traceback
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from services.pdf_parser import extract_text_from_pdf
 from services.ai_service import generate_with_quality_loop, generate_clarifying_questions
@@ -288,3 +290,15 @@ async def generate_presentation(
     }
 
     return JSONResponse({"download_id": download_id, "filename": filename})
+
+
+# ============================================================================
+# SECTION: Bundled Frontend (macOS .app mode)
+# ============================================================================
+
+# When running as a packaged .app the pre-built React files live one level up
+# from the backend source at  Resources/web/.  Mounting them here means users
+# only need to open one URL — no separate frontend server required.
+_WEB_DIR = Path(__file__).parent.parent / "web"
+if _WEB_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(_WEB_DIR), html=True), name="static")
