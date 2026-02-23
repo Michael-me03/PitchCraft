@@ -32,7 +32,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # ── LLM-as-a-Judge configuration ─────────────────────────────────────────────
-_JUDGE_MODEL          = "gpt-5.2-pro"   # evaluator — smarter/more precise than generator
+_JUDGE_MODEL          = "gpt-5.2"   # evaluator — strongest available chat model
 _MAX_JUDGE_ITERATIONS = 3               # 1 initial generation + up to 2 retries
 
 
@@ -457,8 +457,8 @@ def generate_presentation_structure(
 
     # ── Call GPT-4o ────────────────────────────────────────────────────────────
     response = client.chat.completions.create(
-        model="gpt-5.2-pro",
-        max_tokens=16000,
+        model="gpt-5.2",
+        max_completion_tokens=16000,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_message},
@@ -554,7 +554,7 @@ def _judge_structure(
     try:
         response = client.chat.completions.create(
             model=_JUDGE_MODEL,
-            max_tokens=1500,
+            max_completion_tokens=1500,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_msg},
@@ -739,7 +739,7 @@ def generate_clarifying_questions(
     try:
         response = client.chat.completions.create(
             model="gpt-5-nano",
-            max_tokens=600,
+            max_completion_tokens=600,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_msg},
