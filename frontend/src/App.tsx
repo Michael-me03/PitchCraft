@@ -28,6 +28,15 @@ interface ClarifyQuestion {
 
 const API_URL = "";
 
+const CUSTOM_UPLOAD_TEMPLATE: Template = {
+  id: "custom-upload",
+  name: "Custom Template",
+  category: "Business",
+  description: "Your own uploaded .pptx template",
+  tags: ["custom", "upload"],
+  colors: { bg: "#1a1a2e", accent: "#6366f1", text: "#e2e8f0", muted: "#64748b" },
+};
+
 const PURPOSES = [
   { id: "business", label: "Business", icon: "💼" },
   { id: "school", label: "Education", icon: "🎓" },
@@ -42,6 +51,7 @@ export default function App() {
   const [userPrompt, setUserPrompt] = useState("");
   const [purpose, setPurpose] = useState("business");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [customTemplateFile, setCustomTemplateFile] = useState<File | null>(null);
   const [pdfDragging, setPdfDragging] = useState(false);
   const [promptError, setPromptError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -96,9 +106,15 @@ export default function App() {
     setStep(3);
   };
 
+  const handleTemplateUpload = (file: File) => {
+    setCustomTemplateFile(file);
+    setSelectedTemplate(CUSTOM_UPLOAD_TEMPLATE);
+  };
+
   const handleReset = () => {
     setStep(1);
     setSelectedTemplate(null);
+    setCustomTemplateFile(null);
     setUserPrompt("");
     setPurpose("business");
     setPdfFile(null);
@@ -126,7 +142,11 @@ export default function App() {
     setDone(false);
 
     const formData = new FormData();
-    formData.append("template_id", selectedTemplate.id);
+    if (selectedTemplate.id === "custom-upload" && customTemplateFile) {
+      formData.append("template_file", customTemplateFile);
+    } else {
+      formData.append("template_id", selectedTemplate.id);
+    }
     formData.append("user_prompt", userPrompt);
     formData.append("purpose", purpose);
     if (pdfFile) formData.append("pdf_file", pdfFile);
@@ -139,7 +159,7 @@ export default function App() {
 
     try {
       const response = await axios.post(`${API_URL}/api/generate`, formData, {
-        timeout: 180000,
+        timeout: 600000,
       });
 
       const { download_id, filename } = response.data;
@@ -164,6 +184,8 @@ export default function App() {
         } catch {
           setError("Something went wrong. Please try again.");
         }
+      } else if (axios.isAxiosError(err) && err.code === "ECONNABORTED") {
+        setError("Generation timed out. The presentation may be too complex — try a shorter prompt or fewer slides.");
       } else {
         setError("Could not connect to the server. Is the backend running?");
       }
@@ -279,6 +301,8 @@ export default function App() {
               <TemplateGallery
                 selected={selectedTemplate}
                 onSelect={setSelectedTemplate}
+                onUpload={handleTemplateUpload}
+                customFile={customTemplateFile}
               />
 
               <div className="flex justify-end pt-2">

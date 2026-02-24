@@ -1,18 +1,22 @@
+import { useRef } from "react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Check, Star, Zap } from "lucide-react";
+import { Search, Check, Star, Zap, Upload, CheckCircle2 } from "lucide-react";
 import { TEMPLATES, CATEGORIES, type Category } from "../data/templates";
 import type { Template } from "../types/template";
 
 interface Props {
   selected: Template | null;
   onSelect: (t: Template) => void;
+  onUpload: (file: File) => void;
+  customFile: File | null;
 }
 
-export default function TemplateGallery({ selected, onSelect }: Props) {
+export default function TemplateGallery({ selected, onSelect, onUpload, customFile }: Props) {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = TEMPLATES.filter((t) => {
     const matchCat = activeCategory === "All" || t.category === activeCategory;
@@ -65,8 +69,69 @@ export default function TemplateGallery({ selected, onSelect }: Props) {
         ))}
       </div>
 
+      {/* Hidden file input for custom template upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pptx"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onUpload(file);
+          e.target.value = "";
+        }}
+      />
+
       {/* Grid */}
       <div className="template-grid">
+        {/* Upload card — always first */}
+        <motion.div
+          layout
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+          onClick={() => fileInputRef.current?.click()}
+          className={`template-card ${selected?.id === "custom-upload" ? "selected" : ""}`}
+        >
+          <div
+            className="template-preview flex flex-col items-center justify-center gap-2"
+            style={{
+              background: "transparent",
+              border: "2px dashed rgba(99, 102, 241, 0.3)",
+              borderRadius: "8px",
+            }}
+          >
+            {customFile ? (
+              <>
+                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                <span className="text-[10px] text-emerald-300 font-medium text-center px-2 truncate max-w-full">
+                  {customFile.name}
+                </span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-6 h-6 text-indigo-400/60" />
+                <span className="text-[10px] text-gray-500 font-medium">
+                  Upload .pptx
+                </span>
+              </>
+            )}
+
+            {selected?.id === "custom-upload" && (
+              <div className="selected-overlay">
+                <div className="check-badge">
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="template-info">
+            <span className="template-name">Your Template</span>
+            <span className="template-category">Custom Upload</span>
+          </div>
+        </motion.div>
+
         <AnimatePresence mode="popLayout">
           {filtered.map((t, i) => {
             const isSelected = selected?.id === t.id;

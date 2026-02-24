@@ -3,6 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # System dependencies for Matplotlib / Plotly / Kaleido rendering
+# Chromium is required by Kaleido >=1.x for Plotly PNG export
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0t64 \
@@ -11,8 +12,16 @@ RUN apt-get update && apt-get install -y \
     libxrender1 \
     libgomp1 \
     fonts-liberation \
+    fonts-dejavu-core \
+    fontconfig \
+    chromium \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -f -v
+
+# Tell Kaleido / Plotly where Chromium lives
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROMIUM_PATH=/usr/bin/chromium
 
 # Install Python dependencies first (layer cache)
 COPY requirements.txt .
