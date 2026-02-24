@@ -1,0 +1,12 @@
+# ============================================================================
+# PitchCraft — Caddy Reverse Proxy
+# ============================================================================
+# Replace YOUR_DOMAIN with your actual domain (e.g. pitchcraft.de)
+# Caddy automatically handles SSL/HTTPS via Let's Encrypt.
+#
+# No domain yet? Use :80 instead of the domain name for HTTP-only access.
+# ============================================================================
+
+YOUR_DOMAIN {
+    reverse_proxy frontend:80
+}

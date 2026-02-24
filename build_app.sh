@@ -58,6 +58,46 @@ fi
 "$VENV/bin/pip" install -r "$ROOT/backend/requirements.txt" --quiet
 ok "Dependencies installed  ($(du -sh "$VENV" | cut -f1))"
 
+# ── Step 2b: Make venv fully portable (replace symlinks with real binaries) ──
+step "Making Python venv self-contained (portable)"
+
+# Replace all Python symlinks in bin/ with copies of the real binary
+REAL_PYTHON="$(readlink -f "$VENV/bin/python3" 2>/dev/null || python3 -c 'import sys; print(sys.executable)')"
+if [ ! -f "$REAL_PYTHON" ]; then
+  die "Cannot find real Python binary to bundle"
+fi
+
+# Remove symlinks and copy the actual binary
+for LINK in "$VENV/bin/python" "$VENV/bin/python3" "$VENV/bin/python3."*; do
+  [ -e "$LINK" ] || continue
+  rm -f "$LINK"
+done
+cp "$REAL_PYTHON" "$VENV/bin/python3"
+chmod +x "$VENV/bin/python3"
+# Create python -> python3 hardlink
+ln -f "$VENV/bin/python3" "$VENV/bin/python"
+ok "Real Python binary copied ($(du -sh "$VENV/bin/python3" | cut -f1))"
+
+# Copy Python standard library into the venv so it's fully standalone
+SYS_PREFIX="$(python3 -c 'import sys; print(sys.prefix)')"
+PYVER_SHORT="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+SYS_LIB="$SYS_PREFIX/lib/python${PYVER_SHORT}"
+
+if [ -d "$SYS_LIB" ]; then
+  VENV_LIB="$VENV/lib/python${PYVER_SHORT}"
+  # Copy standard library modules that aren't already present
+  rsync -a --ignore-existing "$SYS_LIB/" "$VENV_LIB/" 2>/dev/null || true
+  ok "Standard library bundled"
+fi
+
+# Patch pyvenv.cfg — point home to venv's own bin so no external Python needed
+cat > "$VENV/pyvenv.cfg" <<PYCFG
+home = ${VENV}/bin
+include-system-site-packages = false
+version = ${PYVER_SHORT}
+PYCFG
+ok "pyvenv.cfg patched for portability"
+
 # ── Step 3: Copy icon to Electron assets ─────────────────────────────────────
 step "Preparing Electron assets"
 mkdir -p "$ROOT/electron/assets"

@@ -203,10 +203,10 @@ export default function App() {
 
           <h1 className="text-[42px] md:text-[52px] font-bold leading-none tracking-tight mb-3">
             <span className="bg-gradient-to-b from-white via-gray-200 to-gray-500 bg-clip-text text-transparent">
-              Deck
+              Pitch
             </span>
             <span className="bg-gradient-to-b from-indigo-300 to-indigo-500 bg-clip-text text-transparent">
-              Forge
+              Craft
             </span>
           </h1>
           <p className="text-gray-600 text-[15px] font-light">

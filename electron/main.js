@@ -45,9 +45,18 @@ function pythonBin() {
     return 'python3'
   }
   const venv = path.join(process.resourcesPath, 'venv')
-  return process.platform === 'win32'
-    ? path.join(venv, 'Scripts', 'python.exe')
-    : path.join(venv, 'bin', 'python3')
+  if (process.platform === 'win32') {
+    return path.join(venv, 'Scripts', 'python.exe')
+  }
+  // Try python3 first, then fall back to any python3.x binary
+  const p3 = path.join(venv, 'bin', 'python3')
+  if (fs.existsSync(p3)) return p3
+  try {
+    const bins = fs.readdirSync(path.join(venv, 'bin'))
+    const pyBin = bins.find(f => /^python3\.\d+$/.test(f))
+    if (pyBin) return path.join(venv, 'bin', pyBin)
+  } catch {}
+  return p3  // return default path (will fail with clear error)
 }
 
 function backendDir() {
@@ -134,6 +143,22 @@ async function startBackend(apiKey) {
       `Bundled Python not found at:\n${python}\n\n` +
       `Run  ./build_app.sh  to rebuild the application.`
     )
+  }
+
+  // Patch pyvenv.cfg to point to the actual venv location (may differ from build machine)
+  if (!IS_DEV) {
+    const venvDir = path.join(process.resourcesPath, 'venv')
+    const cfgPath = path.join(venvDir, 'pyvenv.cfg')
+    try {
+      const cfg = fs.readFileSync(cfgPath, 'utf8')
+      const patched = cfg.replace(/^home\s*=\s*.+$/m, `home = ${path.join(venvDir, 'bin')}`)
+      if (patched !== cfg) {
+        fs.writeFileSync(cfgPath, patched)
+        log('Patched pyvenv.cfg for current install path')
+      }
+    } catch (e) {
+      log(`Warning: could not patch pyvenv.cfg: ${e.message}`)
+    }
   }
 
   log(`Backend: ${python}`)
