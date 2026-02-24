@@ -386,6 +386,7 @@ def generate_presentation_structure(
     template_style: Optional[dict] = None,
     clarifications: Optional[dict] = None,
     judge_feedback: Optional[list[str]] = None,
+    language: str = "de",
 ) -> PresentationStructure:
     """
     Generate a complete presentation structure via gpt-5.2.
@@ -427,7 +428,12 @@ def generate_presentation_structure(
     chart_schema     = json.dumps(get_chart_schema_for_ai(), indent=2)
     system_prompt    = _build_system_prompt(chart_schema)
 
-    parts = [f"STYLE: {purpose_instruction}"]
+    language_names = {"de": "German", "en": "English", "fr": "French", "es": "Spanish"}
+    lang_name = language_names.get(language, language)
+    parts = [
+        f"OUTPUT LANGUAGE: {lang_name} — Generate ALL text (titles, bullets, chart labels, speaker notes) in {lang_name}. Do not mix languages.",
+        f"STYLE: {purpose_instruction}",
+    ]
     if template_context:
         parts.append(template_context.strip())
     if pdf_text.strip():
@@ -571,13 +577,14 @@ def generate_with_quality_loop(
     user_prompt: str = "",
     template_style: Optional[dict] = None,
     clarifications: Optional[dict] = None,
+    language: str = "de",
 ) -> tuple[PresentationStructure, dict]:
     """
     Generate a presentation with an LLM-as-a-judge quality loop.
 
     Flow per iteration:
       1. Generate structure (gpt-5.2)
-      2. Judge structure (gpt-5.2-pro): reasoning → binary verdict
+      2. Judge structure (gpt-4o): reasoning → binary verdict
       3. If "good"  → return immediately
          If "bad"   → inject issues as feedback and retry (up to _MAX_JUDGE_ITERATIONS)
       4. After max iterations, return the last attempt regardless of verdict
@@ -588,6 +595,7 @@ def generate_with_quality_loop(
         user_prompt:    Free-text instructions.
         template_style: Template metadata for style-aware tone.
         clarifications: Answers to clarifying questions.
+        language:       Output language code (e.g. "de", "en", "fr").
 
     Returns:
         Tuple of (PresentationStructure, quality_report dict).
@@ -611,6 +619,7 @@ def generate_with_quality_loop(
             template_style=template_style,
             clarifications=clarifications,
             judge_feedback=judge_feedback,
+            language=language,
         )
 
         # Skip judging on the final allowed attempt — just return it
@@ -667,6 +676,7 @@ def generate_clarifying_questions(
     pdf_text: str,
     purpose: str,
     user_prompt: str = "",
+    language: str = "de",
 ) -> dict:
     """
     Analyse the provided context and return targeted clarifying questions if the
@@ -707,8 +717,8 @@ def generate_clarifying_questions(
         "- The prompt is detailed and specific (15+ meaningful words with clear intent)\n"
         "- The answers are already obvious from the provided context\n\n"
 
-        "LANGUAGE RULE: Write all questions in the SAME language as the user's prompt "
-        "(German if prompt is German, English if prompt is English, etc.).\n\n"
+        f"LANGUAGE RULE: Write all questions in {language.upper()} "
+        f"({'German' if language == 'de' else 'English' if language == 'en' else 'French' if language == 'fr' else 'Spanish' if language == 'es' else language}).\n\n"
 
         "Return ONLY valid JSON:\n"
         '{"needs_clarification": true|false, "questions": ['

@@ -17,8 +17,11 @@ Endpoints:
 # ============================================================================
 
 import json
+import logging
 import traceback
 import uuid
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -32,6 +35,7 @@ from services.pdf_parser import extract_text_from_pdf
 from services.ai_service import generate_with_quality_loop, generate_clarifying_questions
 from services.pptx_generator import generate_pptx
 from services.template_generator import generate_template_pptx, get_template_catalog, TEMPLATE_CATALOG
+from services.url_scraper import scrape_urls_from_prompt
 
 app = FastAPI(title="PitchCraft API")
 
@@ -104,6 +108,7 @@ async def clarify_presentation(
     pdf_file:    Optional[UploadFile] = File(None),
     purpose:     str                  = Form("business"),
     user_prompt: str                  = Form(""),
+    language:    str                  = Form("de"),
 ) -> JSONResponse:
     """
     Analyse provided context and return clarifying questions if the content is
@@ -134,6 +139,7 @@ async def clarify_presentation(
         pdf_text=pdf_text,
         purpose=purpose,
         user_prompt=user_prompt,
+        language=language,
     )
     return JSONResponse(result)
 
@@ -147,6 +153,7 @@ async def generate_presentation(
     user_prompt:    str                  = Form(""),
     custom_prompt:  str                  = Form(""),
     clarifications: str                  = Form(""),
+    language:       str                  = Form("de"),
 ) -> JSONResponse:
     """
     Main presentation generation endpoint.
@@ -231,6 +238,16 @@ async def generate_presentation(
                 detail="Please upload a PDF (.pdf) or Markdown (.md) file.",
             )
 
+    # ── Scrape URLs from prompt ─────────────────────────────────────────────────
+    scraped_images: list = []
+    if effective_prompt.strip():
+        try:
+            scraped_text, scraped_images = scrape_urls_from_prompt(effective_prompt)
+            if scraped_text:
+                pdf_text = pdf_text + "\n\n[WEBSITE CONTENT]\n" + scraped_text
+        except Exception as exc:
+            logger.warning("URL scraping failed: %s", exc)
+
     # ── AI generation ──────────────────────────────────────────────────────────
     template_style = TEMPLATE_CATALOG.get(template_id) if template_id else None
 
@@ -249,6 +266,7 @@ async def generate_presentation(
             user_prompt=effective_prompt,
             template_style=template_style,
             clarifications=parsed_clarifications,
+            language=language,
         )
         print(
             f"\n{'='*60}\n"
@@ -271,7 +289,11 @@ async def generate_presentation(
     # ── PPTX rendering ─────────────────────────────────────────────────────────
     tc = (template_style or {}).get("colors")   # {bg, accent, text, muted} or None
     try:
-        pptx_bytes = generate_pptx(template_bytes, structure, template_colors=tc)
+        pptx_bytes = generate_pptx(
+            template_bytes, structure,
+            template_colors=tc,
+            scraped_images=scraped_images,
+        )
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"PowerPoint generation failed: {e}")

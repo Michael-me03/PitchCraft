@@ -13,6 +13,7 @@ import {
   Upload,
   HelpCircle,
   Loader2,
+  Globe,
 } from "lucide-react";
 import axios from "axios";
 import TemplateGallery from "./components/TemplateGallery";
@@ -43,6 +44,13 @@ const PURPOSES = [
   { id: "scientific", label: "Scientific", icon: "🔬" },
 ] as const;
 
+const LANGUAGES = [
+  { id: "de", label: "Deutsch", icon: "🇩🇪" },
+  { id: "en", label: "English", icon: "🇬🇧" },
+  { id: "fr", label: "Français", icon: "🇫🇷" },
+  { id: "es", label: "Español", icon: "🇪🇸" },
+] as const;
+
 type Step = 1 | 2 | 3;
 
 export default function App() {
@@ -50,6 +58,7 @@ export default function App() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [userPrompt, setUserPrompt] = useState("");
   const [purpose, setPurpose] = useState("business");
+  const [language, setLanguage] = useState("de");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [customTemplateFile, setCustomTemplateFile] = useState<File | null>(null);
   const [pdfDragging, setPdfDragging] = useState(false);
@@ -83,6 +92,7 @@ export default function App() {
       const fd = new FormData();
       fd.append("user_prompt", userPrompt);
       fd.append("purpose", purpose);
+      fd.append("language", language);
       if (pdfFile) fd.append("pdf_file", pdfFile);
 
       const res = await axios.post(`${API_URL}/api/clarify`, fd, { timeout: 30000 });
@@ -117,6 +127,7 @@ export default function App() {
     setCustomTemplateFile(null);
     setUserPrompt("");
     setPurpose("business");
+    setLanguage("de");
     setPdfFile(null);
     setDone(false);
     setError("");
@@ -149,6 +160,7 @@ export default function App() {
     }
     formData.append("user_prompt", userPrompt);
     formData.append("purpose", purpose);
+    formData.append("language", language);
     if (pdfFile) formData.append("pdf_file", pdfFile);
     const filledAnswers = Object.fromEntries(
       Object.entries(clarifyAnswers).filter(([, v]) => v.trim())
@@ -408,6 +420,32 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Language */}
+              <div>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <Globe className="w-3.5 h-3.5 text-gray-600" />
+                  <span className="text-[13px] font-medium text-gray-500">
+                    Output Language
+                  </span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {LANGUAGES.map(({ id, label, icon }) => (
+                    <button
+                      key={id}
+                      onClick={() => setLanguage(id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                        language === id
+                          ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+                          : "bg-white/[0.02] border-white/[0.05] text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <span>{icon}</span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
 
               {/* PDF upload (optional) */}
@@ -593,6 +631,15 @@ export default function App() {
                   <span className="summary-label">Style</span>
                   <span className="summary-value capitalize">
                     {PURPOSES.find((p) => p.id === purpose)?.label ?? purpose}
+                  </span>
+                </div>
+
+                {/* Language row */}
+                <div className="summary-row">
+                  <span className="summary-label">Language</span>
+                  <span className="summary-value">
+                    {LANGUAGES.find((l) => l.id === language)?.icon}{" "}
+                    {LANGUAGES.find((l) => l.id === language)?.label ?? language}
                   </span>
                 </div>
 

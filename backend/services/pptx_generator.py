@@ -2065,6 +2065,7 @@ def generate_pptx(
     template_bytes: bytes,
     structure: PresentationStructure,
     template_colors: Optional[dict] = None,
+    scraped_images: Optional[list] = None,
 ) -> bytes:
     """
     Assemble a fully-rendered PPTX from a template and AI-generated structure.
@@ -2074,6 +2075,7 @@ def generate_pptx(
         structure:        Validated PresentationStructure from the AI service.
         template_colors:  Optional dict {bg, accent, text, muted} (hex strings)
                           used to derive the slide colour palette.
+        scraped_images:   Optional list of Path objects to scraped web images.
 
     Returns:
         Raw bytes of the finished .pptx file.
@@ -2176,6 +2178,40 @@ def generate_pptx(
         # Slide number only on manually-drawn slides (native layouts have their own)
         if not use_native:
             _add_slide_number(slide, g, num, total)
+
+    # ── Insert scraped web images (appendix slide) ─────────────────────────────
+    if scraped_images:
+        from pathlib import Path as _Path
+        valid_images = [p for p in scraped_images if _Path(p).exists()]
+        if valid_images:
+            # Add up to 4 images on a single appendix slide
+            imgs_to_add = valid_images[:4]
+            slide = prs.slides.add_slide(blank)
+            _fill_slide_background(slide, g)
+            _add_accent_bar(slide, g)
+
+            # Title
+            _add_textbox(
+                slide, g.content_left, g.title_top, g.content_width, g.title_height,
+                "Web Sources", COLORS["900"], Pt(22), bold=True,
+            )
+
+            # Grid layout for images
+            cols = 2 if len(imgs_to_add) > 1 else 1
+            rows = (len(imgs_to_add) + cols - 1) // cols
+            img_w = g.content_width // cols - Inches(0.15)
+            img_h = g.content_height // rows - Inches(0.15)
+            for idx, img_path in enumerate(imgs_to_add):
+                try:
+                    col = idx % cols
+                    row = idx // cols
+                    left = g.content_left + col * (img_w + Inches(0.15))
+                    top  = g.content_top + row * (img_h + Inches(0.15))
+                    slide.shapes.add_picture(
+                        str(img_path), left, top, img_w, img_h,
+                    )
+                except Exception as exc:
+                    logger.error("Failed to insert scraped image %s: %s", img_path, exc)
 
     output = io.BytesIO()
     prs.save(output)
