@@ -32,8 +32,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # ── LLM-as-a-Judge configuration ─────────────────────────────────────────────
-_JUDGE_MODEL          = "gpt-5.2"   # evaluator — strongest available chat model
-_MAX_JUDGE_ITERATIONS = 3               # 1 initial generation + up to 2 retries
+_JUDGE_MODEL          = "gpt-4o"        # fast evaluator — good enough for direction check
+_MAX_JUDGE_ITERATIONS = 2               # 1 initial generation + up to 1 retry
 
 
 # ============================================================================
@@ -511,35 +511,27 @@ def _judge_structure(
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     system_prompt = (
-        "You are a senior McKinsey presentation consultant reviewing an AI-generated "
-        "slide deck structure. Your job: identify quality failures with precision.\n\n"
+        "You are a presentation quality reviewer. Do a QUICK directional check — "
+        "only flag serious structural problems, not minor imperfections.\n\n"
 
-        "EVALUATION CRITERIA — check every slide against ALL of these:\n"
-        "1. CONTENT DENSITY: Every non-section slide must have 3–4 substantive bullets "
-        "with real data, OR ≥1 chart with actual numeric params. "
-        "Vague filler ('We are committed to excellence') = FAIL.\n"
-        "2. DATA SPECIFICITY: Real numbers, percentages, or dates required. "
-        "'Significant growth' without a figure = FAIL. "
-        "'Revenue grew 34% YoY to €2.4B' = PASS.\n"
-        "3. CHART QUALITY: Every chart slide must use a valid chart_function from the "
-        "provided schema and have real numeric data in params — not obvious placeholders "
-        "like [1, 2, 3] or ['A', 'B', 'C'] with round dummy values.\n"
-        "4. NO EMPTY SLIDES: A slide with only a title and empty bullets/charts = FAIL.\n"
-        "5. NARRATIVE ARC: Slides form a logical flow (Context → Evidence → Insights → "
-        "Actions or equivalent). Random topic order = FAIL.\n\n"
+        "ONLY flag 'bad' if ANY of these CRITICAL issues exist:\n"
+        "1. EMPTY SLIDES: Slides with no bullets AND no chart = FAIL.\n"
+        "2. BROKEN CHARTS: chart_function not in the provided schema, or params "
+        "completely missing required fields.\n"
+        "3. NO NARRATIVE: Slides are in random order with no logical flow.\n"
+        "4. COMPLETELY GENERIC: Entire deck is vague filler with zero data points.\n\n"
 
-        "PROCESS:\n"
-        "Step 1 — Write detailed reasoning: go through each slide by title, check each "
-        "criterion, cite exact evidence (e.g. 'Slide 4 bar_chart values: [100, 200, 300] "
-        "— suspiciously round, likely placeholder').\n"
-        "Step 2 — State your verdict: 'good' only if ALL criteria pass for ALL slides. "
-        "Otherwise 'bad'.\n"
-        "Step 3 — If 'bad', list issues as specific, actionable bullet points "
-        "(slide name + criterion + what exactly is wrong).\n\n"
+        "DO NOT flag:\n"
+        "- Minor data rounding or approximate numbers (those are fine)\n"
+        "- Stylistic preferences or wording choices\n"
+        "- Slides that have content but could have 'more' content\n\n"
+
+        "Be LENIENT. If the deck has a clear structure, real content, and working "
+        "charts, verdict is 'good'. Only reject truly broken decks.\n\n"
 
         "Return ONLY valid JSON:\n"
-        '{"reasoning": "...", "verdict": "good" | "bad", '
-        '"issues": ["Slide X (Title): criterion — specific problem", ...]}\n'
+        '{"reasoning": "brief 2-3 sentence summary", "verdict": "good" | "bad", '
+        '"issues": ["only critical issues"]}\n'
         'When verdict is "good", issues must be [].'
     )
 

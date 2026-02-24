@@ -7,6 +7,6 @@
 # No domain yet? Use :80 instead of the domain name for HTTP-only access.
 # ============================================================================
 
-YOUR_DOMAIN {
+pitchcraft.fun, www.pitchcraft.fun {
     reverse_proxy frontend:80
 }
