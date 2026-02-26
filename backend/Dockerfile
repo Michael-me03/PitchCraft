@@ -4,6 +4,7 @@ WORKDIR /app
 
 # System dependencies for Matplotlib / Plotly / Kaleido rendering
 # Chromium is required by Kaleido >=1.x for Plotly PNG export
+# LibreOffice Impress is required for PPTX → PDF preview conversion
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0t64 \
@@ -15,6 +16,8 @@ RUN apt-get update && apt-get install -y \
     fonts-dejavu-core \
     fontconfig \
     chromium \
+    libreoffice-impress \
+    libreoffice-common \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && fc-cache -f -v

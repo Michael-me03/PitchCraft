@@ -669,6 +669,58 @@ def generate_with_quality_loop(
 
 
 # ============================================================================
+# SECTION: Iterative Generation (Feedback Loop)
+# ============================================================================
+
+def generate_iterated_structure(
+    previous_structure_json: str,
+    user_feedback: str,
+    pdf_text: str,
+    purpose: str,
+    original_prompt: str,
+    template_style: Optional[dict] = None,
+    language: str = "de",
+) -> tuple[PresentationStructure, dict]:
+    """
+    Generate an improved presentation based on user feedback on a previous version.
+
+    Builds an augmented prompt containing the previous structure and the user's
+    feedback, then runs the standard generation + quality loop.
+
+    Args:
+        previous_structure_json: JSON of the previous PresentationStructure.
+        user_feedback:           Free-text describing desired changes.
+        pdf_text:                Original source document text.
+        purpose:                 Presentation style.
+        original_prompt:         The user's original prompt from the first generation.
+        template_style:          Template metadata for style-aware tone.
+        language:                Output language code.
+
+    Returns:
+        Tuple of (PresentationStructure, quality_report dict).
+    """
+    iteration_prompt = (
+        f"{original_prompt}\n\n"
+        f"ITERATION CONTEXT — The user has reviewed the previous version and wants changes.\n"
+        f"PREVIOUS PRESENTATION STRUCTURE (JSON):\n"
+        f"{previous_structure_json[:20000]}\n\n"
+        f"USER FEEDBACK — Apply ALL of these changes:\n"
+        f"{user_feedback}\n\n"
+        f"IMPORTANT: Keep everything that worked well in the previous version. "
+        f"Only modify what the user explicitly asked to change. "
+        f"Maintain the same overall narrative structure unless the feedback says otherwise."
+    )
+
+    return generate_with_quality_loop(
+        pdf_text=pdf_text,
+        purpose=purpose,
+        user_prompt=iteration_prompt,
+        template_style=template_style,
+        language=language,
+    )
+
+
+# ============================================================================
 # SECTION: Clarification Question Generator
 # ============================================================================
 

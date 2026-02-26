@@ -5,11 +5,14 @@ REST API that orchestrates the full presentation generation pipeline:
   PDF extraction → AI slide structure → Chart rendering → PPTX assembly
 
 Endpoints:
-  GET  /api/health           Health check
-  GET  /api/templates        Template catalog
-  GET  /api/download/{id}    Download generated PPTX (30-min expiry)
-  POST /api/clarify          Check if context is sufficient; return questions if not
-  POST /api/generate         Main generation endpoint
+  GET  /api/health                          Health check
+  GET  /api/templates                       Template catalog
+  GET  /api/download/{id}                   Download generated PPTX (30-min expiry)
+  GET  /api/preview/{id}/info               Slide count for a generated PPTX
+  GET  /api/preview/{id}/slide/{index}      Single slide as PNG image
+  POST /api/clarify                         Check if context is sufficient
+  POST /api/generate                        Main generation endpoint
+  POST /api/generate-iterate                Iterate on a previous generation with feedback
 """
 
 # ============================================================================
@@ -32,10 +35,15 @@ from fastapi.responses import Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from services.pdf_parser import extract_text_from_pdf
-from services.ai_service import generate_with_quality_loop, generate_clarifying_questions
+from services.ai_service import (
+    generate_with_quality_loop,
+    generate_clarifying_questions,
+    generate_iterated_structure,
+)
 from services.pptx_generator import generate_pptx
 from services.template_generator import generate_template_pptx, get_template_catalog, TEMPLATE_CATALOG
 from services.url_scraper import scrape_urls_from_prompt
+from services.preview_service import convert_pptx_to_slide_images
 
 app = FastAPI(title="PitchCraft API")
 
@@ -53,14 +61,16 @@ app.add_middleware(
 # ============================================================================
 
 _downloads: dict[str, dict] = {}
+_previews: dict[str, list[bytes]] = {}   # download_id → list of PNG bytes per slide
 
 
 def _clean_expired() -> None:
-    """Remove download entries whose 30-minute window has elapsed."""
+    """Remove download and preview entries whose 30-minute window has elapsed."""
     now     = datetime.now()
     expired = [k for k, v in _downloads.items() if v["expires"] < now]
     for k in expired:
         del _downloads[k]
+        _previews.pop(k, None)
 
 
 # ============================================================================
@@ -306,12 +316,210 @@ async def generate_presentation(
     filename      = f"PitchCraft_{template_name}_{date_str}.pptx".replace(" ", "_")
 
     _downloads[download_id] = {
-        "bytes":   pptx_bytes,
-        "filename": filename,
-        "expires": datetime.now() + timedelta(minutes=30),
+        "bytes":          pptx_bytes,
+        "filename":       filename,
+        "expires":        datetime.now() + timedelta(minutes=30),
+        "structure_json": structure.model_dump_json(),
+        "pdf_text":       pdf_text,
+        "user_prompt":    effective_prompt,
+        "template_id":    template_id,
     }
 
-    return JSONResponse({"download_id": download_id, "filename": filename})
+    return JSONResponse({
+        "download_id":    download_id,
+        "filename":       filename,
+        "quality_report": quality_report,
+    })
+
+
+# ============================================================================
+# SECTION: Iteration Endpoint
+# ============================================================================
+
+@app.post("/api/generate-iterate")
+async def iterate_presentation(
+    download_id:    str                  = Form(...),
+    feedback:       str                  = Form(...),
+    template_file:  Optional[UploadFile] = File(None),
+    template_id:    Optional[str]        = Form(None),
+    purpose:        str                  = Form("business"),
+    language:       str                  = Form("de"),
+) -> JSONResponse:
+    """
+    Iterate on a previously generated presentation based on user feedback.
+
+    Loads the previous structure and context from the download store, augments
+    the prompt with the user's feedback, and regenerates the presentation.
+
+    Args:
+        download_id:    UUID of the previous generation to iterate on.
+        feedback:       Free-text feedback describing desired changes.
+        template_file:  Optional new PPTX template (overrides previous).
+        template_id:    Optional new template ID (overrides previous).
+        purpose:        Presentation style.
+        language:       Output language code.
+
+    Returns:
+        JSON: {download_id: str, filename: str, quality_report: dict}
+
+    Raises:
+        HTTPException 404: If the previous download_id is unknown or expired.
+        HTTPException 500: On AI generation or PPTX rendering failures.
+    """
+    # ── Load previous context ─────────────────────────────────────────────────
+    _clean_expired()
+    prev = _downloads.get(download_id)
+    if not prev:
+        raise HTTPException(
+            status_code=404,
+            detail="Previous generation not found or expired. Please generate a new presentation.",
+        )
+
+    previous_structure_json = prev.get("structure_json", "")
+    pdf_text                = prev.get("pdf_text", "")
+    original_prompt         = prev.get("user_prompt", "")
+
+    # ── Resolve template bytes ────────────────────────────────────────────────
+    effective_template_id = template_id or prev.get("template_id")
+    if effective_template_id:
+        try:
+            template_bytes = generate_template_pptx(effective_template_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    elif template_file is not None:
+        if not template_file.filename.lower().endswith(".pptx"):
+            raise HTTPException(status_code=400, detail="Please upload a valid PPTX template.")
+        template_bytes = await template_file.read()
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Please select a template or upload a PPTX template file.",
+        )
+
+    # ── AI generation with feedback ───────────────────────────────────────────
+    template_style = TEMPLATE_CATALOG.get(effective_template_id) if effective_template_id else None
+
+    try:
+        structure, quality_report = generate_iterated_structure(
+            previous_structure_json=previous_structure_json,
+            user_feedback=feedback,
+            pdf_text=pdf_text,
+            purpose=purpose,
+            original_prompt=original_prompt,
+            template_style=template_style,
+            language=language,
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {e}")
+
+    # ── PPTX rendering ───────────────────────────────────────────────────────
+    tc = (template_style or {}).get("colors")
+    try:
+        pptx_bytes = generate_pptx(template_bytes, structure, template_colors=tc)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"PowerPoint generation failed: {e}")
+
+    # ── Store and return ──────────────────────────────────────────────────────
+    _clean_expired()
+    new_download_id = str(uuid.uuid4())
+    template_name   = (template_style or {}).get("name", "Presentation")
+    date_str        = datetime.now().strftime("%Y-%m-%d")
+    filename        = f"PitchCraft_{template_name}_{date_str}.pptx".replace(" ", "_")
+
+    _downloads[new_download_id] = {
+        "bytes":          pptx_bytes,
+        "filename":       filename,
+        "expires":        datetime.now() + timedelta(minutes=30),
+        "structure_json": structure.model_dump_json(),
+        "pdf_text":       pdf_text,
+        "user_prompt":    original_prompt,
+        "template_id":    effective_template_id,
+    }
+
+    return JSONResponse({
+        "download_id":    new_download_id,
+        "filename":       filename,
+        "quality_report": quality_report,
+    })
+
+
+# ============================================================================
+# SECTION: Preview Endpoints
+# ============================================================================
+
+@app.get("/api/preview/{download_id}/info")
+async def preview_info(download_id: str) -> JSONResponse:
+    """
+    Return metadata about a generated presentation's slide preview.
+
+    Args:
+        download_id: UUID string from /api/generate or /api/generate-iterate.
+
+    Returns:
+        JSON: {total_slides: int}
+
+    Raises:
+        HTTPException 404: If the download is unknown or expired.
+        HTTPException 500: If preview conversion fails.
+    """
+    _clean_expired()
+    entry = _downloads.get(download_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Download not found or expired.")
+
+    # Generate preview if not cached
+    if download_id not in _previews:
+        try:
+            slide_images = convert_pptx_to_slide_images(entry["bytes"])
+            _previews[download_id] = slide_images
+        except Exception as e:
+            logger.error("Preview conversion failed: %s", e)
+            raise HTTPException(status_code=500, detail=f"Preview conversion failed: {e}")
+
+    return JSONResponse({"total_slides": len(_previews[download_id])})
+
+
+@app.get("/api/preview/{download_id}/slide/{index}")
+async def preview_slide(download_id: str, index: int) -> Response:
+    """
+    Return a single slide as a PNG image.
+
+    Args:
+        download_id: UUID string from /api/generate or /api/generate-iterate.
+        index:       Zero-based slide index.
+
+    Returns:
+        PNG image bytes.
+
+    Raises:
+        HTTPException 404: If the download or slide index is invalid.
+        HTTPException 500: If preview conversion fails.
+    """
+    _clean_expired()
+    entry = _downloads.get(download_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Download not found or expired.")
+
+    # Generate preview if not cached
+    if download_id not in _previews:
+        try:
+            slide_images = convert_pptx_to_slide_images(entry["bytes"])
+            _previews[download_id] = slide_images
+        except Exception as e:
+            logger.error("Preview conversion failed: %s", e)
+            raise HTTPException(status_code=500, detail=f"Preview conversion failed: {e}")
+
+    slides = _previews[download_id]
+    if index < 0 or index >= len(slides):
+        raise HTTPException(status_code=404, detail=f"Slide index {index} out of range (0-{len(slides)-1}).")
+
+    return Response(
+        content=slides[index],
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=1800"},
+    )
 
 
 # ============================================================================
