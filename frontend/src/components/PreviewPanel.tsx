@@ -2,7 +2,7 @@
 // SECTION: Imports
 // ============================================================================
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -10,8 +10,15 @@ import {
   Download,
   Settings,
   Presentation,
+  Globe,
+  Layers,
+  Upload,
+  FileText,
+  X,
 } from "lucide-react";
-import type { PreviewData } from "../types/chat";
+import type { PreviewData, SessionSettings } from "../types/chat";
+import type { Template } from "../types/template";
+import TemplateGallery from "./TemplateGallery";
 
 // ============================================================================
 // SECTION: Props
@@ -20,16 +27,54 @@ import type { PreviewData } from "../types/chat";
 interface Props {
   preview: PreviewData | null;
   onOpenSettings: () => void;
+  // Settings props (shown when no preview)
+  settings?: SessionSettings;
+  selectedTemplate?: Template | null;
+  customFile?: File | null;
+  pdfFile?: File | null;
+  onSelectTemplate?: (t: Template) => void;
+  onUploadTemplate?: (f: File) => void;
+  onUploadPdf?: (f: File | null) => void;
+  onSettingsChange?: (s: Partial<SessionSettings>) => void;
 }
+
+// ============================================================================
+// SECTION: Constants
+// ============================================================================
+
+const PURPOSES = [
+  { id: "business", label: "Business", icon: "💼" },
+  { id: "school", label: "Education", icon: "🎓" },
+  { id: "scientific", label: "Scientific", icon: "🔬" },
+] as const;
+
+const LANGUAGES = [
+  { id: "de", label: "Deutsch", icon: "🇩🇪" },
+  { id: "en", label: "English", icon: "🇬🇧" },
+  { id: "fr", label: "Français", icon: "🇫🇷" },
+  { id: "es", label: "Español", icon: "🇪🇸" },
+] as const;
 
 // ============================================================================
 // SECTION: Component
 // ============================================================================
 
-export default function PreviewPanel({ preview, onOpenSettings }: Props) {
+export default function PreviewPanel({
+  preview,
+  onOpenSettings,
+  settings,
+  selectedTemplate,
+  customFile,
+  pdfFile,
+  onSelectTemplate,
+  onUploadTemplate,
+  onUploadPdf,
+  onSettingsChange,
+}: Props) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // ── Reset slide index when preview changes ─────────────────────────────
   useEffect(() => {
@@ -44,7 +89,6 @@ export default function PreviewPanel({ preview, onOpenSettings }: Props) {
     }
     setLoading(true);
     const url = `/api/preview/${preview.downloadId}/slide/${currentSlide}`;
-    // Preload image
     const img = new Image();
     img.onload = () => {
       setImageUrl(url);
@@ -71,32 +115,133 @@ export default function PreviewPanel({ preview, onOpenSettings }: Props) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [preview]);
 
-  // ── No preview yet ─────────────────────────────────────────────────────
+  // ── No preview → Show inline settings with template gallery ────────────
   if (!preview) {
     return (
       <div className="h-full flex flex-col bg-[#07070d] border-l border-white/[0.06]">
-        {/* Settings button */}
-        <div className="flex items-center justify-end p-3 border-b border-white/[0.06]">
-          <button
-            onClick={onOpenSettings}
-            className="p-2 rounded-lg hover:bg-white/[0.06] text-white/30 hover:text-white/60 transition-colors"
-            title="Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
+        {/* Header */}
+        <div className="flex items-center gap-2 p-3 border-b border-white/[0.06]">
+          <Settings className="w-4 h-4 text-white/30" />
+          <span className="text-xs font-medium text-white/50">Configuration</span>
         </div>
 
-        {/* Placeholder */}
-        <div className="flex-1 flex flex-col items-center justify-center px-8">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
-            <Presentation className="w-8 h-8 text-white/15" />
-          </div>
-          <p className="text-sm text-white/25 text-center">
-            Your presentation preview will appear here
-          </p>
-          <p className="text-xs text-white/15 text-center mt-1">
-            Send a prompt to get started
-          </p>
+        {/* Settings content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          {/* Language */}
+          {settings && onSettingsChange && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Globe className="w-3.5 h-3.5 text-white/30" />
+                <span className="text-xs font-medium text-white/40">Language</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.id}
+                    onClick={() => onSettingsChange({ language: lang.id })}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      settings.language === lang.id
+                        ? "bg-indigo-600/30 border border-indigo-500/40 text-indigo-300"
+                        : "bg-white/[0.04] border border-white/[0.06] text-white/50 hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    {lang.icon} {lang.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Purpose */}
+          {settings && onSettingsChange && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Layers className="w-3.5 h-3.5 text-white/30" />
+                <span className="text-xs font-medium text-white/40">Style</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {PURPOSES.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => onSettingsChange({ purpose: p.id })}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      settings.purpose === p.id
+                        ? "bg-indigo-600/30 border border-indigo-500/40 text-indigo-300"
+                        : "bg-white/[0.04] border border-white/[0.06] text-white/50 hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    {p.icon} {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PDF Upload */}
+          {onUploadPdf && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-3.5 h-3.5 text-white/30" />
+                <span className="text-xs font-medium text-white/40">Source Document</span>
+                <span className="text-[10px] text-white/20 ml-1">optional</span>
+              </div>
+              {pdfFile ? (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                  <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="text-xs text-indigo-300 flex-1 truncate">{pdfFile.name}</span>
+                  <button
+                    onClick={() => onUploadPdf(null)}
+                    className="text-white/30 hover:text-red-400 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => pdfInputRef.current?.click()}
+                  className="w-full p-2.5 rounded-lg border border-dashed border-white/[0.08] hover:border-white/[0.15] text-xs text-white/25 hover:text-white/40 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Upload PDF or Markdown
+                </button>
+              )}
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf,.md"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onUploadPdf(f);
+                  e.target.value = "";
+                }}
+                className="hidden"
+              />
+            </div>
+          )}
+
+          {/* Divider */}
+          <div className="h-px bg-white/[0.04]" />
+
+          {/* Template Gallery */}
+          {onSelectTemplate && onUploadTemplate && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Presentation className="w-3.5 h-3.5 text-white/30" />
+                <span className="text-xs font-medium text-white/40">Template</span>
+                {selectedTemplate && (
+                  <span className="ml-auto text-[10px] text-indigo-400">
+                    {selectedTemplate.name}
+                  </span>
+                )}
+              </div>
+              <TemplateGallery
+                selected={selectedTemplate ?? null}
+                onSelect={onSelectTemplate}
+                onUpload={onUploadTemplate}
+                customFile={customFile ?? null}
+              />
+            </div>
+          )}
         </div>
       </div>
     );
@@ -170,7 +315,6 @@ export default function PreviewPanel({ preview, onOpenSettings }: Props) {
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          {/* Slide dots */}
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(preview.totalSlides, 15) }).map(
               (_, i) => (

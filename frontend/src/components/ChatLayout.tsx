@@ -373,25 +373,21 @@ export default function ChatLayout() {
         />
       </div>
 
-      {/* Preview panel */}
-      {hasPreview && (
-        <div className="w-[50%] min-w-[400px] max-w-[700px]">
-          <PreviewPanel
-            preview={previewData}
-            onOpenSettings={() => setSettingsOpen(true)}
-          />
-        </div>
-      )}
-
-      {/* Preview placeholder (when no preview but needs settings access) */}
-      {!hasPreview && (
-        <div className="w-[50%] min-w-[400px] max-w-[700px]">
-          <PreviewPanel
-            preview={null}
-            onOpenSettings={() => setSettingsOpen(true)}
-          />
-        </div>
-      )}
+      {/* Right panel: Preview (when generated) or Settings (when not) */}
+      <div className="w-[50%] min-w-[400px] max-w-[700px]">
+        <PreviewPanel
+          preview={previewData}
+          onOpenSettings={() => setSettingsOpen(true)}
+          settings={activeSession?.settings ?? { templateId: null, templateName: null, purpose: "business", language: "de" }}
+          selectedTemplate={selectedTemplate}
+          customFile={customTemplateFile}
+          pdfFile={pdfFile}
+          onSelectTemplate={handleSelectTemplate}
+          onUploadTemplate={handleUploadTemplate}
+          onUploadPdf={setPdfFile}
+          onSettingsChange={handleSettingsChange}
+        />
+      </div>
 
       {/* Settings overlay */}
       <AnimatePresence>
