@@ -380,6 +380,7 @@ export default function ChatLayout() {
           onSend={handleSend}
           onCancel={cancel}
           onViewPreview={handleViewPreview}
+          onUploadPdf={setPdfFile}
         />
       </div>
 

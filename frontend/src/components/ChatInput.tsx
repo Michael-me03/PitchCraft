@@ -108,8 +108,11 @@ export default function ChatInput({ onSend, onCancel, phase, hasPreview, disable
         <button
           onClick={() => fileRef.current?.click()}
           disabled={isGenerating || disabled}
-          className="p-2 rounded-lg hover:bg-white/[0.06] text-white/30 hover:text-white/60 transition-colors disabled:opacity-30"
-          title="Attach PDF or Markdown"
+          className={`p-2 rounded-lg transition-all disabled:opacity-30 ${!file && !hasPreview
+              ? "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 ring-1 ring-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.1)]"
+              : "hover:bg-white/[0.06] text-white/30 hover:text-white/60"
+            }`}
+          title="Attach PDF or Markdown (Recommended)"
         >
           <Paperclip className="w-4.5 h-4.5" />
         </button>
