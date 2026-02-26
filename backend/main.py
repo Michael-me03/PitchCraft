@@ -73,6 +73,23 @@ def _clean_expired() -> None:
         _previews.pop(k, None)
 
 
+def _build_summary(structure) -> str:
+    """Build a human-readable summary of the generated presentation."""
+    title      = structure.title or "Untitled"
+    subtitle   = structure.subtitle or ""
+    num_slides = len(structure.slides) + 1  # +1 for title slide
+    # Collect section headers for key topics
+    topics = [s.title for s in structure.slides
+              if s.layout_type == "section_header" and s.title]
+    parts = [f'"{title}"']
+    if subtitle:
+        parts.append(f"— {subtitle}")
+    parts.append(f"| {num_slides} slides")
+    if topics:
+        parts.append(f"| Topics: {', '.join(topics[:4])}")
+    return " ".join(parts)
+
+
 # ============================================================================
 # SECTION: API Endpoints
 # ============================================================================
@@ -329,6 +346,7 @@ async def generate_presentation(
         "download_id":    download_id,
         "filename":       filename,
         "quality_report": quality_report,
+        "summary":        _build_summary(structure),
     })
 
 
@@ -442,6 +460,7 @@ async def iterate_presentation(
         "download_id":    new_download_id,
         "filename":       filename,
         "quality_report": quality_report,
+        "summary":        _build_summary(structure),
     })
 
 

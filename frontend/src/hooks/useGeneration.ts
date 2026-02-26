@@ -152,7 +152,7 @@ export function useGeneration(
           signal: controller.signal,
         });
 
-        const { download_id, filename, quality_report } = res.data;
+        const { download_id, filename, quality_report, summary } = res.data;
 
         // Add thinking blocks
         if (quality_report?.history) {
@@ -189,11 +189,14 @@ export function useGeneration(
         setPreviewData(preview);
 
         // Add preview message
+        const msg = summary
+          ? `Your presentation "${filename}" is ready! — ${summary}`
+          : `Your presentation "${filename}" is ready!`;
         addMessage(
           activeSessionId,
           makeMessage({
             role: "preview",
-            content: `Your presentation "${filename}" is ready!`,
+            content: msg,
             previewData: preview,
           }),
         );
@@ -263,7 +266,7 @@ export function useGeneration(
           signal: controller.signal,
         });
 
-        const { download_id, filename, quality_report } = res.data;
+        const { download_id, filename, quality_report, summary } = res.data;
 
         // Add thinking blocks
         if (quality_report?.history) {
@@ -299,11 +302,14 @@ export function useGeneration(
         };
         setPreviewData(preview);
 
+        const iterMsg = summary
+          ? `Updated presentation "${filename}" is ready! — ${summary}`
+          : `Updated presentation "${filename}" is ready!`;
         addMessage(
           activeSessionId,
           makeMessage({
             role: "preview",
-            content: `Updated presentation "${filename}" is ready!`,
+            content: iterMsg,
             previewData: preview,
           }),
         );

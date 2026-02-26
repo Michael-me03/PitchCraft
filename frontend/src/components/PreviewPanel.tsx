@@ -15,6 +15,7 @@ import {
   Upload,
   FileText,
   X,
+  PanelRightClose,
 } from "lucide-react";
 import type { PreviewData, SessionSettings } from "../types/chat";
 import type { Template } from "../types/template";
@@ -36,6 +37,9 @@ interface Props {
   onUploadTemplate?: (f: File) => void;
   onUploadPdf?: (f: File | null) => void;
   onSettingsChange?: (s: Partial<SessionSettings>) => void;
+  // Collapse support
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 
 // ============================================================================
@@ -70,6 +74,8 @@ export default function PreviewPanel({
   onUploadTemplate,
   onUploadPdf,
   onSettingsChange,
+  collapsed: _collapsed,
+  onToggle,
 }: Props) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -139,11 +145,10 @@ export default function PreviewPanel({
                   <button
                     key={lang.id}
                     onClick={() => onSettingsChange({ language: lang.id })}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      settings.language === lang.id
-                        ? "bg-indigo-600/30 border border-indigo-500/40 text-indigo-300"
-                        : "bg-white/[0.04] border border-white/[0.06] text-white/50 hover:bg-white/[0.08]"
-                    }`}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${settings.language === lang.id
+                      ? "bg-indigo-600/30 border border-indigo-500/40 text-indigo-300"
+                      : "bg-white/[0.04] border border-white/[0.06] text-white/50 hover:bg-white/[0.08]"
+                      }`}
                   >
                     {lang.icon} {lang.label}
                   </button>
@@ -164,11 +169,10 @@ export default function PreviewPanel({
                   <button
                     key={p.id}
                     onClick={() => onSettingsChange({ purpose: p.id })}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      settings.purpose === p.id
-                        ? "bg-indigo-600/30 border border-indigo-500/40 text-indigo-300"
-                        : "bg-white/[0.04] border border-white/[0.06] text-white/50 hover:bg-white/[0.08]"
-                    }`}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${settings.purpose === p.id
+                      ? "bg-indigo-600/30 border border-indigo-500/40 text-indigo-300"
+                      : "bg-white/[0.04] border border-white/[0.06] text-white/50 hover:bg-white/[0.08]"
+                      }`}
                   >
                     {p.icon} {p.label}
                   </button>
@@ -274,6 +278,15 @@ export default function PreviewPanel({
           >
             <Settings className="w-4 h-4" />
           </button>
+          {onToggle && (
+            <button
+              onClick={onToggle}
+              className="p-2 rounded-lg hover:bg-white/[0.06] text-white/30 hover:text-white/60 transition-colors"
+              title="Collapse preview"
+            >
+              <PanelRightClose className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -321,11 +334,10 @@ export default function PreviewPanel({
                 <button
                   key={i}
                   onClick={() => setCurrentSlide(i)}
-                  className={`w-1.5 h-1.5 rounded-full transition-all ${
-                    i === currentSlide
-                      ? "bg-indigo-400 w-3"
-                      : "bg-white/15 hover:bg-white/30"
-                  }`}
+                  className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentSlide
+                    ? "bg-indigo-400 w-3"
+                    : "bg-white/15 hover:bg-white/30"
+                    }`}
                 />
               ),
             )}

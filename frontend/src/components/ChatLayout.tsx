@@ -2,12 +2,12 @@
 // SECTION: Imports
 // ============================================================================
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, PanelRight } from "lucide-react";
 import { TEMPLATES } from "../data/templates";
 import type { Template } from "../types/template";
-import type { ChatMessage, SessionSettings } from "../types/chat";
+import type { ChatMessage, SessionSettings, PreviewData } from "../types/chat";
 import { useChatSessions } from "../hooks/useChatSessions";
 import { useGeneration } from "../hooks/useGeneration";
 import HistorySidebar from "./HistorySidebar";
@@ -76,6 +76,8 @@ export default function ChatLayout() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pendingClarify, setPendingClarify] = useState(false);
   const [clarifyParams, setClarifyParams] = useState<Record<string, string>>({});
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const prevPreviewRef = useRef<PreviewData | null>(null);
 
   // ── Sync template from session settings ────────────────────────────────
   useEffect(() => {
@@ -84,6 +86,14 @@ export default function ChatLayout() {
       if (found) setSelectedTemplate(found);
     }
   }, [activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-open preview panel on first generation ─────────────────────────
+  useEffect(() => {
+    if (previewData && !prevPreviewRef.current) {
+      setPreviewOpen(true);
+    }
+    prevPreviewRef.current = previewData;
+  }, [previewData]);
 
   // ── Load preview from session on switch ────────────────────────────────
   useEffect(() => {
@@ -374,7 +384,21 @@ export default function ChatLayout() {
       </div>
 
       {/* Right panel: Preview (when generated) or Settings (when not) */}
-      <div className="w-[50%] min-w-[400px] max-w-[700px]">
+      {!previewOpen && hasPreview && (
+        <button
+          onClick={() => setPreviewOpen(true)}
+          className="absolute top-3 right-3 z-20 p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-white/30 hover:text-indigo-400 transition-colors"
+          title="Show preview"
+        >
+          <PanelRight className="w-4 h-4" />
+        </button>
+      )}
+      <div
+        className={`transition-all duration-300 ease-in-out overflow-hidden ${previewOpen || !hasPreview
+          ? "w-[50%] min-w-[400px] max-w-[700px]"
+          : "w-0 min-w-0 max-w-0"
+          }`}
+      >
         <PreviewPanel
           preview={previewData}
           onOpenSettings={() => setSettingsOpen(true)}
@@ -386,6 +410,8 @@ export default function ChatLayout() {
           onUploadTemplate={handleUploadTemplate}
           onUploadPdf={setPdfFile}
           onSettingsChange={handleSettingsChange}
+          collapsed={!previewOpen && hasPreview}
+          onToggle={() => setPreviewOpen((o) => !o)}
         />
       </div>
 

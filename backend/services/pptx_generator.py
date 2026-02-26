@@ -298,6 +298,31 @@ def _set_line_spacing(p, spacing: float = 1.35):
     lnSpc.append(spcPct)
 
 
+def _enable_auto_shrink(txb, min_scale: int = 50) -> None:
+    """Enable PowerPoint's native text auto-shrink so text never overflows the shape.
+
+    Injects ``<a:normAutofit fontScale="..." lnSpcReduction="20000"/>`` into the
+    text frame's ``<a:bodyPr>`` element.  PowerPoint will progressively reduce the
+    font size (down to *min_scale* percent of the original) and tighten line
+    spacing until the text fits within the shape boundaries.
+
+    Args:
+        txb:       Shape (textbox or auto-shape) whose text frame to configure.
+        min_scale: Minimum font-scale percentage (100000 = 100 %).  Lower values
+                   allow more aggressive shrinking.  50 (= 50 %) is a safe floor.
+    """
+    bodyPr = txb.text_frame._txBody.bodyPr
+    # Remove any existing autofit / spAutoFit so normAutofit takes effect
+    for child in list(bodyPr):
+        tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+        if tag in ("normAutofit", "spAutoFit", "noAutofit"):
+            bodyPr.remove(child)
+    autofit = bodyPr.makeelement(qn("a:normAutofit"), {})
+    autofit.set("fontScale", str(min_scale * 1000))   # e.g. 50 → "50000"
+    autofit.set("lnSpcReduction", "20000")             # allow 20 % line-spacing reduction
+    bodyPr.append(autofit)
+
+
 # ─── Adaptive Typography ──────────────────────────────────────────────────────
 
 def _title_size(text: str, base: int = 32) -> int:
@@ -311,15 +336,24 @@ def _title_size(text: str, base: int = 32) -> int:
 
 
 def _bullet_size(bullets: list) -> int:
-    """Adaptive bullet font size: fewer / shorter bullets → larger text."""
+    """Adaptive bullet font size: fewer / shorter bullets → larger text.
+
+    Conservative sizing to prevent text from overflowing constrained shapes.
+    """
     if not bullets:
-        return 18
-    n   = len(bullets)
-    avg = sum(len(b) for b in bullets) / n
-    if n <= 3 and avg <= 55:  return 22
-    if n <= 4 and avg <= 75:  return 20
-    if n <= 6:                return 18
-    return 16
+        return 16
+    n    = len(bullets)
+    avg  = sum(len(b) for b in bullets) / n
+    maxl = max(len(b) for b in bullets)
+    # Very long individual bullets → force smaller text
+    if maxl > 140 or (n >= 4 and avg > 80):
+        return 13
+    if maxl > 100 or (n >= 3 and avg > 60):
+        return 14
+    if n <= 3 and avg <= 45:  return 20
+    if n <= 4 and avg <= 60:  return 18
+    if n <= 6:                return 16
+    return 14
 
 
 # ─── Frame Elements (shared by all content slides) ───────────────────────────
@@ -471,10 +505,11 @@ def _build_bullet_cards(slide, g: SlideGeometry, bullets: list) -> None:
         tx      = _textbox(slide, inner_x, bt + stripe_h + g.h(0.015),
                            inner_w, bh - stripe_h - g.h(0.030))
         _vcenter(tx)
+        _enable_auto_shrink(tx)
         tx.text_frame.word_wrap = True
         p = tx.text_frame.paragraphs[0]
         p.font.name      = FONT
-        p.font.size      = Pt(20 if n == 2 else 18)
+        p.font.size      = Pt(18 if n == 2 else 16)
         p.font.color.rgb = COLORS["text_dark"]
         p.alignment      = PP_ALIGN.CENTER
         p.text           = bullet
@@ -528,9 +563,10 @@ def _build_icon_list(slide, g: SlideGeometry, bullets: list) -> None:
         # Body text
         tx_x = bl + pill_w + gap
         tx_w = bw - pill_w - gap
-        size = 20 if n <= 3 else 18
+        size = 18 if n <= 3 else 16
         body_txb = _textbox(slide, tx_x, ry, tx_w, rh)
         _vcenter(body_txb)
+        _enable_auto_shrink(body_txb)
         body_txb.text_frame.word_wrap = True
         p = body_txb.text_frame.paragraphs[0]
         p.font.name = FONT
@@ -925,6 +961,7 @@ def _build_content_slide(slide, content: SlideContent, g: SlideGeometry):
             size = _bullet_size(content.bullets)
             txb  = _textbox(slide, g.x(ML), g.y(g.body_y), g.w(CW), g.h(g.body_h))
             _vcenter(txb)
+            _enable_auto_shrink(txb)
             _add_bullets(txb.text_frame, content.bullets,
                          size=size, bold_first_word=True)
 
@@ -984,11 +1021,12 @@ def _build_chart_slide(slide, content: SlideContent, g: SlideGeometry):
         # Bullets in card
         bul_top = bt + pad_top + g.h(0.055)
         bul_h   = bh - pad_top - g.h(0.060)
-        size    = min(_bullet_size(content.bullets), 16)
+        size    = min(_bullet_size(content.bullets), 14)
         btxb    = _textbox(slide, inner_x, bul_top, inner_w, bul_h)
         _vcenter(btxb)
+        _enable_auto_shrink(btxb)
         _add_bullets(btxb.text_frame, content.bullets,
-                     size=size, bold_first_word=True, line_spacing=1.4)
+                     size=size, bold_first_word=True, line_spacing=1.2)
     else:
         _render_chart(slide, content.charts[0], bl, bt, bw, bh)
 
@@ -1193,12 +1231,14 @@ def _build_column_card(slide, g: SlideGeometry,
         bul_top = rule_top + g.h(0.015)
         bul_h   = (top + col_h) - bul_top - pad_y
         if bul_h > g.h(0.04):
-            size = min(_bullet_size(bullets), 18)
+            size = min(_bullet_size(bullets), 16)
             btxb = _textbox(slide, inner_x, bul_top, inner_w, bul_h)
             _vcenter(btxb)
+            _enable_auto_shrink(btxb)
             _add_bullets(btxb.text_frame, bullets,
                          size=size, bold_first_word=True,
-                         color=COLORS["text_body"])
+                         color=COLORS["text_body"],
+                         line_spacing=1.15)
 
 
 # ─── Agenda Slide ─────────────────────────────────────────────────────────────
@@ -1281,6 +1321,7 @@ def _build_agenda_slide(slide, content: SlideContent, g: SlideGeometry) -> None:
             t_txb   = _textbox(slide, cx + g.w(0.018), title_y,
                                cw - g.w(0.036), title_h)
             t_txb.text_frame.word_wrap = True
+            _enable_auto_shrink(t_txb)
             t_p            = t_txb.text_frame.paragraphs[0]
             t_p.font.name  = FONT
             t_p.font.size  = Pt(ttl_size)
@@ -1296,6 +1337,7 @@ def _build_agenda_slide(slide, content: SlideContent, g: SlideGeometry) -> None:
                     d_txb = _textbox(slide, cx + g.w(0.018), desc_y,
                                      cw - g.w(0.036), desc_h)
                     d_txb.text_frame.word_wrap = True
+                    _enable_auto_shrink(d_txb)
                     d_p            = d_txb.text_frame.paragraphs[0]
                     d_p.font.name  = FONT
                     d_p.font.size  = Pt(desc_size)
@@ -1341,6 +1383,7 @@ def _build_agenda_slide(slide, content: SlideContent, g: SlideGeometry) -> None:
             half = row_h // 2
             t_txb = _textbox(slide, tx_x, ry + g.h(0.012), tx_w, half)
             t_txb.text_frame.word_wrap = True
+            _enable_auto_shrink(t_txb)
             tp            = t_txb.text_frame.paragraphs[0]
             tp.font.name  = FONT
             tp.font.size  = Pt(15)
@@ -1352,6 +1395,7 @@ def _build_agenda_slide(slide, content: SlideContent, g: SlideGeometry) -> None:
                 d_txb = _textbox(slide, tx_x, ry + half, tx_w,
                                  row_h - half - g.h(0.012))
                 d_txb.text_frame.word_wrap = True
+                _enable_auto_shrink(d_txb)
                 dp            = d_txb.text_frame.paragraphs[0]
                 dp.font.name  = FONT
                 dp.font.size  = Pt(12)
@@ -1810,27 +1854,28 @@ def _build_icon_grid_slide(slide, content: SlideContent, g: SlideGeometry) -> No
         tx       = _textbox(slide, cx + text_pad, text_y,
                             cw - 2 * text_pad, text_h)
         tx.text_frame.word_wrap = True
+        _enable_auto_shrink(tx)
 
         if ":" in body:
             card_title, desc = body.split(":", 1)
             p = tx.text_frame.paragraphs[0]
             p.font.name      = FONT
-            p.font.size      = Pt(15 if rows >= 2 else 17)
+            p.font.size      = Pt(14 if rows >= 2 else 16)
             p.font.bold      = True
             p.font.color.rgb = COLORS["text_dark"]
             p.alignment      = PP_ALIGN.CENTER
             p.text           = card_title.strip()
             p2 = tx.text_frame.add_paragraph()
-            p2.space_before       = Pt(5)
+            p2.space_before       = Pt(4)
             p2.font.name          = FONT
-            p2.font.size          = Pt(12 if rows >= 2 else 14)
+            p2.font.size          = Pt(11 if rows >= 2 else 12)
             p2.font.color.rgb     = COLORS["text_muted"]
             p2.alignment          = PP_ALIGN.CENTER
             p2.text               = desc.strip()
         else:
             p = tx.text_frame.paragraphs[0]
             p.font.name      = FONT
-            p.font.size      = Pt(15)
+            p.font.size      = Pt(14)
             p.font.bold      = True
             p.font.color.rgb = COLORS["text_dark"]
             p.alignment      = PP_ALIGN.CENTER
