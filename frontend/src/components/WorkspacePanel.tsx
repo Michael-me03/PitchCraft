@@ -48,6 +48,13 @@ interface Props {
 // SECTION: Constants
 // ============================================================================
 
+const STARTERS = [
+  "Create a Q3 investor update with revenue charts and KPIs",
+  "Build a pitch deck for an AI startup raising Series A",
+  "Make a scientific presentation about climate change data",
+  "Design a school presentation about the solar system",
+];
+
 const PURPOSES = [
   { id: "business", label: "Business", icon: "💼" },
   { id: "school", label: "Education", icon: "🎓" },
@@ -410,6 +417,23 @@ export default function WorkspacePanel({
 
       {/* ── Prompt input bar (sticky bottom) ───────────────────────────── */}
       <div className="border-t border-white/[0.06] bg-[#0a0a12]/90 backdrop-blur-xl px-4 py-3">
+        {/* Starter prompts */}
+        {!prompt && (
+          <div className="max-w-3xl mx-auto flex flex-wrap gap-2 mb-2">
+            {STARTERS.map((s) => (
+              <button
+                key={s}
+                onClick={() => {
+                  setPrompt(s);
+                  textareaRef.current?.focus();
+                }}
+                className="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[11px] text-white/40 hover:text-white/70 hover:bg-white/[0.06] hover:border-white/[0.1] transition-all"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="max-w-3xl mx-auto flex items-end gap-2">
           <textarea
             ref={textareaRef}

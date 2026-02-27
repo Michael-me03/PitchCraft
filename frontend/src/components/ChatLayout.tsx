@@ -68,7 +68,7 @@ export default function ChatLayout() {
 
   // ── UI state ───────────────────────────────────────────────────────────
   const [historyOpen, setHistoryOpen] = useState(true);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
     TEMPLATES[0] ?? null,
@@ -418,12 +418,12 @@ export default function ChatLayout() {
         {chatOpen && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 380, opacity: 1 }}
+            animate={{ width: 460, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
             className="flex-shrink-0 overflow-hidden border-l border-white/[0.06]"
           >
-            <div className="w-[380px] h-full flex flex-col bg-[#07070d]">
+            <div className="w-[460px] h-full flex flex-col bg-[#07070d]">
               {/* Chat header */}
               <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
