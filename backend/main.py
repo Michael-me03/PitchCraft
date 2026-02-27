@@ -21,6 +21,7 @@ Endpoints:
 
 import json
 import logging
+import threading
 import traceback
 import uuid
 
@@ -71,6 +72,23 @@ def _clean_expired() -> None:
     for k in expired:
         del _downloads[k]
         _previews.pop(k, None)
+
+
+def _preconvert_preview(download_id: str) -> None:
+    """Pre-convert PPTX to slide images in a background thread.
+
+    Called after generation completes so the first preview request
+    is instant instead of blocking for 10-60 seconds.
+    """
+    entry = _downloads.get(download_id)
+    if not entry or download_id in _previews:
+        return
+    try:
+        slide_images = convert_pptx_to_slide_images(entry["bytes"])
+        _previews[download_id] = slide_images
+        logger.info("Background preview ready: %s (%d slides)", download_id, len(slide_images))
+    except Exception as e:
+        logger.warning("Background preview conversion failed: %s", e)
 
 
 def _build_summary(structure) -> str:
@@ -372,6 +390,9 @@ async def generate_presentation(
         "template_id":    template_id,
     }
 
+    # Start preview conversion in background so first request is instant
+    threading.Thread(target=_preconvert_preview, args=(download_id,), daemon=True).start()
+
     return JSONResponse({
         "download_id":    download_id,
         "filename":       filename,
@@ -485,6 +506,9 @@ async def iterate_presentation(
         "user_prompt":    original_prompt,
         "template_id":    effective_template_id,
     }
+
+    # Start preview conversion in background so first request is instant
+    threading.Thread(target=_preconvert_preview, args=(new_download_id,), daemon=True).start()
 
     return JSONResponse({
         "download_id":    new_download_id,

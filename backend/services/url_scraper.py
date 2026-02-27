@@ -18,6 +18,7 @@ Limits:
 import logging
 import re
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urljoin, urlparse
@@ -213,16 +214,26 @@ def scrape_urls_from_prompt(
         session_dir = Path(tempfile.mkdtemp(prefix="pitchcraft_images_"))
     session_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Scraping %d URL(s) from prompt", len(urls))
+    logger.info("Scraping %d URL(s) from prompt in parallel", len(urls))
 
     text_parts: list[str] = []
     all_image_paths: list[Path] = []
     total_images = 0
 
-    for url in urls:
-        data = scrape_url(url)
+    # Scrape all URLs in parallel
+    scraped_results: list[dict] = [{}] * len(urls)
+    with ThreadPoolExecutor(max_workers=min(5, len(urls))) as executor:
+        future_map = {executor.submit(scrape_url, url): i for i, url in enumerate(urls)}
+        for future in as_completed(future_map):
+            idx = future_map[future]
+            try:
+                scraped_results[idx] = future.result()
+            except Exception as exc:
+                logger.warning("Failed to scrape URL #%d: %s", idx, exc)
+                scraped_results[idx] = {"url": urls[idx], "title": "", "text": "", "image_urls": []}
 
-        if data["text"]:
+    for data in scraped_results:
+        if data.get("text"):
             text_parts.append(
                 f"--- Source: {data['title'] or data['url']} ---\n"
                 f"URL: {data['url']}\n"
@@ -230,7 +241,7 @@ def scrape_urls_from_prompt(
             )
 
         # Download images (respect global limit)
-        for img_url in data["image_urls"]:
+        for img_url in data.get("image_urls", []):
             if total_images >= _MAX_IMAGES:
                 break
             path = download_image(img_url, session_dir)

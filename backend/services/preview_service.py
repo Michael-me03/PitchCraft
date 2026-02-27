@@ -15,6 +15,7 @@ Pipeline:
 import logging
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import fitz  # PyMuPDF
@@ -73,9 +74,32 @@ def _pptx_to_pdf(pptx_bytes: bytes, output_dir: Path) -> Path:
 # SECTION: PDF → PNG Conversion (PyMuPDF)
 # ============================================================================
 
+def _render_page(pdf_path: str, page_num: int) -> tuple[int, bytes]:
+    """Render a single PDF page to PNG bytes.
+
+    Each worker opens its own fitz.Document so rendering is thread-safe.
+
+    Args:
+        pdf_path:  Path to the PDF file (string for pickling).
+        page_num:  Zero-based page index.
+
+    Returns:
+        Tuple of (page_num, png_bytes).
+    """
+    doc = fitz.open(pdf_path)
+    matrix = fitz.Matrix(_RENDER_SCALE, _RENDER_SCALE)
+    page = doc.load_page(page_num)
+    pix = page.get_pixmap(matrix=matrix)
+    png = pix.tobytes("png")
+    doc.close()
+    return page_num, png
+
+
 def _pdf_to_pngs(pdf_path: Path) -> list[bytes]:
     """
     Convert each page of a PDF to a PNG image.
+
+    Uses parallel rendering for PDFs with multiple pages.
 
     Args:
         pdf_path: Path to the PDF file.
@@ -84,16 +108,29 @@ def _pdf_to_pngs(pdf_path: Path) -> list[bytes]:
         List of PNG bytes, one per page.
     """
     doc = fitz.open(str(pdf_path))
-    images: list[bytes] = []
-
-    matrix = fitz.Matrix(_RENDER_SCALE, _RENDER_SCALE)
-
-    for page_num in range(len(doc)):
-        page = doc.load_page(page_num)
-        pix = page.get_pixmap(matrix=matrix)
-        images.append(pix.tobytes("png"))
-
+    total = len(doc)
     doc.close()
+
+    if total <= 2:
+        # Sequential for small PDFs (thread overhead not worth it)
+        doc = fitz.open(str(pdf_path))
+        matrix = fitz.Matrix(_RENDER_SCALE, _RENDER_SCALE)
+        images = []
+        for i in range(total):
+            page = doc.load_page(i)
+            pix = page.get_pixmap(matrix=matrix)
+            images.append(pix.tobytes("png"))
+        doc.close()
+        return images
+
+    # Parallel rendering for larger presentations
+    images: list[bytes] = [b""] * total
+    with ThreadPoolExecutor(max_workers=min(4, total)) as executor:
+        futures = [executor.submit(_render_page, str(pdf_path), i) for i in range(total)]
+        for future in futures:
+            idx, png = future.result()
+            images[idx] = png
+
     return images
 
 
