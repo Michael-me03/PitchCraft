@@ -3,16 +3,16 @@
 // ============================================================================
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { AnimatePresence } from "framer-motion";
-import { PanelLeft, PanelRight } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { PanelLeft, MessageSquare, X } from "lucide-react";
 import { TEMPLATES } from "../data/templates";
 import type { Template } from "../types/template";
 import type { ChatMessage, SessionSettings, PreviewData } from "../types/chat";
 import { useChatSessions } from "../hooks/useChatSessions";
 import { useGeneration } from "../hooks/useGeneration";
 import HistorySidebar from "./HistorySidebar";
+import WorkspacePanel from "./WorkspacePanel";
 import ChatPanel from "./ChatPanel";
-import PreviewPanel from "./PreviewPanel";
 import SettingsPanel from "./SettingsPanel";
 
 // ============================================================================
@@ -68,6 +68,7 @@ export default function ChatLayout() {
 
   // ── UI state ───────────────────────────────────────────────────────────
   const [historyOpen, setHistoryOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
     TEMPLATES[0] ?? null,
@@ -76,7 +77,7 @@ export default function ChatLayout() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pendingClarify, setPendingClarify] = useState(false);
   const [clarifyParams, setClarifyParams] = useState<Record<string, string>>({});
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [showSetup, setShowSetup] = useState(true);
   const prevPreviewRef = useRef<PreviewData | null>(null);
 
   // ── Sync template from session settings ────────────────────────────────
@@ -87,10 +88,11 @@ export default function ChatLayout() {
     }
   }, [activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Auto-open preview panel on first generation ─────────────────────────
+  // ── Auto-open chat and show preview on first generation ────────────────
   useEffect(() => {
     if (previewData && !prevPreviewRef.current) {
-      setPreviewOpen(true);
+      setChatOpen(true);
+      setShowSetup(false);
     }
     prevPreviewRef.current = previewData;
   }, [previewData]);
@@ -98,13 +100,12 @@ export default function ChatLayout() {
   // ── Load preview from session on switch ────────────────────────────────
   useEffect(() => {
     if (activeSession?.lastDownloadId) {
-      // Try to load preview for the last download
       setPreviewData({
         downloadId: activeSession.lastDownloadId,
         filename: activeSession.lastFilename || "Presentation.pptx",
-        totalSlides: 0, // Will be fetched lazily
+        totalSlides: 0,
       });
-      // Fetch actual slide count
+      setShowSetup(false);
       fetch(`/api/preview/${activeSession.lastDownloadId}/info`)
         .then((r) => r.json())
         .then((d) => {
@@ -115,11 +116,12 @@ export default function ChatLayout() {
           }
         })
         .catch(() => {
-          // Preview may have expired
           setPreviewData(null);
+          setShowSetup(true);
         });
     } else {
       setPreviewData(null);
+      setShowSetup(true);
     }
   }, [activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -141,16 +143,9 @@ export default function ChatLayout() {
           templateId: t.id,
           templateName: t.name,
         });
-        addMessage(
-          activeSessionId,
-          makeMessage({
-            role: "system",
-            content: `Template changed to "${t.name}"`,
-          }),
-        );
       }
     },
-    [activeSessionId, updateSettings, addMessage],
+    [activeSessionId, updateSettings],
   );
 
   const handleUploadTemplate = useCallback(
@@ -162,16 +157,9 @@ export default function ChatLayout() {
           templateId: "custom-upload",
           templateName: f.name,
         });
-        addMessage(
-          activeSessionId,
-          makeMessage({
-            role: "system",
-            content: `Custom template uploaded: ${f.name}`,
-          }),
-        );
       }
     },
-    [activeSessionId, updateSettings, addMessage],
+    [activeSessionId, updateSettings],
   );
 
   // ── Handle settings changes ────────────────────────────────────────────
@@ -179,75 +167,105 @@ export default function ChatLayout() {
     (changes: Partial<SessionSettings>) => {
       if (!activeSessionId) return;
       updateSettings(activeSessionId, changes);
-
-      if (changes.language) {
-        const langNames: Record<string, string> = {
-          de: "Deutsch",
-          en: "English",
-          fr: "Français",
-          es: "Español",
-        };
-        addMessage(
-          activeSessionId,
-          makeMessage({
-            role: "system",
-            content: `Language changed to ${langNames[changes.language] || changes.language}`,
-          }),
-        );
-      }
-      if (changes.purpose) {
-        addMessage(
-          activeSessionId,
-          makeMessage({
-            role: "system",
-            content: `Style changed to ${changes.purpose}`,
-          }),
-        );
-      }
     },
-    [activeSessionId, updateSettings, addMessage],
+    [activeSessionId, updateSettings],
   );
 
-  // ── Handle send ────────────────────────────────────────────────────────
-  const handleSend = useCallback(
-    async (text: string, file?: File) => {
-      if (!activeSessionId || !activeSession) return;
+  // ── Handle generate from workspace ─────────────────────────────────────
+  const handleGenerate = useCallback(
+    async (promptText: string) => {
+      if (!activeSessionId || !activeSession || !selectedTemplate) return;
 
-      const attachedPdf = file || pdfFile;
-
-      // Ensure template is selected
-      if (!selectedTemplate) {
-        addMessage(
-          activeSessionId,
-          makeMessage({
-            role: "assistant",
-            content: "Please select a template first. Open Settings (gear icon) to choose one.",
-          }),
-        );
-        return;
-      }
+      const attachedPdf = pdfFile;
 
       // Add user message
       addMessage(
         activeSessionId,
         makeMessage({
           role: "user",
-          content: text,
+          content: promptText,
           attachments: attachedPdf
             ? [{ name: attachedPdf.name, type: attachedPdf.name.endsWith(".pdf") ? "pdf" : "md" }]
             : undefined,
         }),
       );
 
-      // If we're in clarification mode (answering questions)
+      // If in clarification mode
       if (pendingClarify) {
         setPendingClarify(false);
-        const answers = { ...clarifyParams, answer: text };
-
+        const answers = { ...clarifyParams, answer: promptText };
         await generate({
           templateId: selectedTemplate.id === "custom-upload" ? undefined : selectedTemplate.id,
           templateFile: selectedTemplate.id === "custom-upload" ? customTemplateFile ?? undefined : undefined,
           pdfFile: attachedPdf ?? undefined,
+          purpose: activeSession.settings.purpose,
+          language: activeSession.settings.language,
+          userPrompt: promptText,
+          clarifications: answers,
+        });
+        return;
+      }
+
+      // Try clarify first
+      const questions = await clarify({
+        templateId: selectedTemplate.id === "custom-upload" ? undefined : selectedTemplate.id,
+        templateFile: selectedTemplate.id === "custom-upload" ? customTemplateFile ?? undefined : undefined,
+        pdfFile: attachedPdf ?? undefined,
+        purpose: activeSession.settings.purpose,
+        language: activeSession.settings.language,
+        userPrompt: promptText,
+      });
+
+      if (questions && questions.length > 0) {
+        setPendingClarify(true);
+        setClarifyParams({ original_prompt: promptText });
+        setChatOpen(true);
+        return;
+      }
+
+      // Generate directly
+      await generate({
+        templateId: selectedTemplate.id === "custom-upload" ? undefined : selectedTemplate.id,
+        templateFile: selectedTemplate.id === "custom-upload" ? customTemplateFile ?? undefined : undefined,
+        pdfFile: attachedPdf ?? undefined,
+        purpose: activeSession.settings.purpose,
+        language: activeSession.settings.language,
+        userPrompt: promptText,
+      });
+    },
+    [
+      activeSessionId,
+      activeSession,
+      selectedTemplate,
+      customTemplateFile,
+      pdfFile,
+      pendingClarify,
+      clarifyParams,
+      addMessage,
+      generate,
+      clarify,
+    ],
+  );
+
+  // ── Handle chat send (for iteration / clarification) ───────────────────
+  const handleChatSend = useCallback(
+    async (text: string) => {
+      if (!activeSessionId || !activeSession || !selectedTemplate) return;
+
+      // Add user message
+      addMessage(
+        activeSessionId,
+        makeMessage({ role: "user", content: text }),
+      );
+
+      // If clarifying
+      if (pendingClarify) {
+        setPendingClarify(false);
+        const answers = { ...clarifyParams, answer: text };
+        await generate({
+          templateId: selectedTemplate.id === "custom-upload" ? undefined : selectedTemplate.id,
+          templateFile: selectedTemplate.id === "custom-upload" ? customTemplateFile ?? undefined : undefined,
+          pdfFile: pdfFile ?? undefined,
           purpose: activeSession.settings.purpose,
           language: activeSession.settings.language,
           userPrompt: text,
@@ -256,7 +274,7 @@ export default function ChatLayout() {
         return;
       }
 
-      // If we already have a preview → iterate
+      // Iterate on existing presentation
       if (previewData) {
         await iterate({
           downloadId: previewData.downloadId,
@@ -269,27 +287,11 @@ export default function ChatLayout() {
         return;
       }
 
-      // First generation — try clarify first
-      const questions = await clarify({
-        templateId: selectedTemplate.id === "custom-upload" ? undefined : selectedTemplate.id,
-        templateFile: selectedTemplate.id === "custom-upload" ? customTemplateFile ?? undefined : undefined,
-        pdfFile: attachedPdf ?? undefined,
-        purpose: activeSession.settings.purpose,
-        language: activeSession.settings.language,
-        userPrompt: text,
-      });
-
-      if (questions && questions.length > 0) {
-        setPendingClarify(true);
-        setClarifyParams({ original_prompt: text });
-        return;
-      }
-
-      // No clarification needed → generate directly
+      // Fallback: generate
       await generate({
         templateId: selectedTemplate.id === "custom-upload" ? undefined : selectedTemplate.id,
         templateFile: selectedTemplate.id === "custom-upload" ? customTemplateFile ?? undefined : undefined,
-        pdfFile: attachedPdf ?? undefined,
+        pdfFile: pdfFile ?? undefined,
         purpose: activeSession.settings.purpose,
         language: activeSession.settings.language,
         userPrompt: text,
@@ -307,7 +309,6 @@ export default function ChatLayout() {
       addMessage,
       generate,
       iterate,
-      clarify,
     ],
   );
 
@@ -317,18 +318,24 @@ export default function ChatLayout() {
     setPreviewData(null);
     setPendingClarify(false);
     setPdfFile(null);
+    setShowSetup(true);
+    setChatOpen(false);
   }, [createSession, setPreviewData]);
+
+  // ── Handle back to setup ───────────────────────────────────────────────
+  const handleBackToSetup = useCallback(() => {
+    setShowSetup(true);
+  }, []);
 
   // ── View preview from chat ─────────────────────────────────────────────
   const handleViewPreview = useCallback(
     (downloadId: string) => {
-      // Find the preview data in messages
       const msg = activeSession?.messages.find(
         (m) => m.previewData?.downloadId === downloadId,
       );
       if (msg?.previewData) {
         setPreviewData(msg.previewData);
-        setPreviewOpen(true);
+        setShowSetup(false);
       }
     },
     [activeSession, setPreviewData],
@@ -344,11 +351,11 @@ export default function ChatLayout() {
   );
 
   const messages = activeSession?.messages ?? [];
-  const hasPreview = previewData !== null;
+  const workspacePreview = showSetup ? null : previewData;
 
   return (
     <div className="flex h-full bg-[#060609]">
-      {/* History sidebar toggle (when closed) */}
+      {/* ── History sidebar toggle (when closed) ───────────────────── */}
       {!historyOpen && (
         <button
           onClick={() => setHistoryOpen(true)}
@@ -358,7 +365,7 @@ export default function ChatLayout() {
         </button>
       )}
 
-      {/* History sidebar */}
+      {/* ── History sidebar ────────────────────────────────────────── */}
       <AnimatePresence>
         {historyOpen && (
           <HistorySidebar
@@ -372,56 +379,86 @@ export default function ChatLayout() {
         )}
       </AnimatePresence>
 
-      {/* Chat panel */}
-      <div className={`flex-1 min-w-0 ${hasPreview ? "" : ""}`}>
-        <ChatPanel
-          messages={messages}
-          phase={phase}
-          hasPreview={hasPreview}
-          onSend={handleSend}
-          onCancel={cancel}
-          onViewPreview={handleViewPreview}
-          onUploadPdf={setPdfFile}
-        />
-      </div>
-
-      {/* Right panel: Preview (when generated) or Settings (when not) */}
-      {!previewOpen && hasPreview && (
-        <button
-          onClick={() => setPreviewOpen(true)}
-          className="absolute top-3 right-3 z-20 p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-white/30 hover:text-indigo-400 transition-colors"
-          title="Show preview"
-        >
-          <PanelRight className="w-4 h-4" />
-        </button>
-      )}
-      <div
-        className={`transition-all duration-300 ease-in-out overflow-hidden ${previewOpen || !hasPreview
-          ? "w-[50%] min-w-[400px] max-w-[700px]"
-          : "w-0 min-w-0 max-w-0"
-          }`}
-      >
-        <PreviewPanel
-          preview={previewData}
-          onOpenSettings={() => setSettingsOpen(true)}
+      {/* ── Workspace (center) ─────────────────────────────────────── */}
+      <div className="flex-1 min-w-0">
+        <WorkspacePanel
+          preview={workspacePreview}
           settings={activeSession?.settings ?? { templateId: null, templateName: null, purpose: "business", language: "de" }}
           selectedTemplate={selectedTemplate}
           customFile={customTemplateFile}
           pdfFile={pdfFile}
+          phase={phase}
           onSelectTemplate={handleSelectTemplate}
           onUploadTemplate={handleUploadTemplate}
           onUploadPdf={setPdfFile}
           onSettingsChange={handleSettingsChange}
-          collapsed={!previewOpen && hasPreview}
-          onToggle={() => setPreviewOpen((o) => !o)}
+          onGenerate={handleGenerate}
+          onCancel={cancel}
+          onBackToSetup={handleBackToSetup}
         />
       </div>
 
-      {/* Settings overlay */}
+      {/* ── Chat toggle button (when closed) ───────────────────────── */}
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="absolute top-3 right-3 z-20 flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-white/30 hover:text-indigo-400 transition-colors"
+          title="Open chat"
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span className="text-xs">Chat</span>
+          {messages.length > 0 && (
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+          )}
+        </button>
+      )}
+
+      {/* ── Chat sidebar (right, collapsible) ──────────────────────── */}
+      <AnimatePresence>
+        {chatOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 380, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="flex-shrink-0 overflow-hidden border-l border-white/[0.06]"
+          >
+            <div className="w-[380px] h-full flex flex-col bg-[#07070d]">
+              {/* Chat header */}
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-white/30" />
+                  <span className="text-xs font-medium text-white/50">
+                    {previewData ? "Feedback & Iteration" : "Chat"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setChatOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/[0.06] text-white/30 hover:text-white/60 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Chat panel */}
+              <ChatPanel
+                messages={messages}
+                phase={phase}
+                hasPreview={!!previewData}
+                onSend={handleChatSend}
+                onCancel={cancel}
+                onViewPreview={handleViewPreview}
+                onUploadPdf={setPdfFile}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Settings overlay ───────────────────────────────────────── */}
       <AnimatePresence>
         {settingsOpen && (
           <>
-            {/* Backdrop */}
             <div
               className="fixed inset-0 bg-black/40 z-40"
               onClick={() => setSettingsOpen(false)}
