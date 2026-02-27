@@ -328,6 +328,7 @@ export default function ChatLayout() {
       );
       if (msg?.previewData) {
         setPreviewData(msg.previewData);
+        setPreviewOpen(true);
       }
     },
     [activeSession, setPreviewData],

@@ -74,20 +74,50 @@ def _clean_expired() -> None:
 
 
 def _build_summary(structure) -> str:
-    """Build a human-readable summary of the generated presentation."""
+    """Build a human-readable summary of the generated presentation.
+
+    Args:
+        structure: PresentationStructure with title, subtitle, and slides.
+
+    Returns:
+        Multi-line markdown summary with slide count, layout breakdown,
+        and section topics.
+    """
     title      = structure.title or "Untitled"
-    subtitle   = structure.subtitle or ""
     num_slides = len(structure.slides) + 1  # +1 for title slide
+
+    # Count layout types for a breakdown
+    layout_counts: dict[str, int] = {}
+    for s in structure.slides:
+        lt = s.layout_type or "content"
+        layout_counts[lt] = layout_counts.get(lt, 0) + 1
+
+    # Collect content slide titles (skip section headers)
+    slide_titles = [s.title for s in structure.slides if s.title and s.layout_type != "section_header"]
+
     # Collect section headers for key topics
-    topics = [s.title for s in structure.slides
-              if s.layout_type == "section_header" and s.title]
-    parts = [f'"{title}"']
-    if subtitle:
-        parts.append(f"— {subtitle}")
-    parts.append(f"| {num_slides} slides")
-    if topics:
-        parts.append(f"| Topics: {', '.join(topics[:4])}")
-    return " ".join(parts)
+    sections = [s.title for s in structure.slides if s.layout_type == "section_header" and s.title]
+
+    # Build summary
+    lines: list[str] = []
+    lines.append(f"**{title}** — {num_slides} Folien erstellt.")
+
+    # Layout breakdown (only interesting types)
+    layout_labels = {
+        "chart": "Charts", "multi_chart": "Multi-Charts",
+        "two_column": "Vergleiche", "key_number": "Kennzahlen",
+        "metrics_grid": "Metriken", "pricing": "Preismodelle",
+        "icon_grid": "Feature-Grids", "timeline": "Timelines",
+        "quote": "Zitate", "agenda": "Agenda",
+    }
+    highlights = [f"{v} {layout_labels[k]}" for k, v in layout_counts.items() if k in layout_labels]
+    if highlights:
+        lines.append(f"Enthält: {', '.join(highlights)}")
+
+    if sections:
+        lines.append(f"Abschnitte: {' → '.join(sections[:5])}")
+
+    return "\n".join(lines)
 
 
 # ============================================================================

@@ -53,15 +53,18 @@ export default function ChatMessage({ message, onViewPreview }: Props) {
   // ── Preview card ───────────────────────────────────────────────────────
   if (message.role === "preview" && message.previewData) {
     const { downloadId, filename, totalSlides } = message.previewData;
+    // Extract summary lines from content (after the "is ready!" prefix)
+    const summaryPart = message.content.split(" — ").slice(1).join(" — ");
+    const summaryLines = summaryPart ? summaryPart.split("\n").filter(Boolean) : [];
     return (
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex justify-start my-2"
       >
-        <div className="max-w-[400px] rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-indigo-500/20 p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+        <div className="max-w-[480px] rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-indigo-500/20 p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
               <Presentation className="w-5 h-5 text-indigo-400" />
             </div>
             <div>
@@ -71,6 +74,20 @@ export default function ChatMessage({ message, onViewPreview }: Props) {
               </p>
             </div>
           </div>
+          {summaryLines.length > 0 && (
+            <div className="mb-3 pl-1 space-y-1">
+              {summaryLines.map((line, idx) => (
+                <p
+                  key={idx}
+                  className="text-xs text-white/50 leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html: line
+                      .replace(/\*\*(.*?)\*\*/g, '<span class="text-white/80 font-medium">$1</span>')
+                  }}
+                />
+              ))}
+            </div>
+          )}
           <div className="flex gap-2">
             {totalSlides > 0 && onViewPreview && (
               <button

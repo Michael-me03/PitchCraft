@@ -298,7 +298,7 @@ def _set_line_spacing(p, spacing: float = 1.35):
     lnSpc.append(spcPct)
 
 
-def _enable_auto_shrink(txb, min_scale: int = 50) -> None:
+def _enable_auto_shrink(txb, min_scale: int = 40) -> None:
     """Enable PowerPoint's native text auto-shrink so text never overflows the shape.
 
     Injects ``<a:normAutofit fontScale="..." lnSpcReduction="20000"/>`` into the
@@ -339,21 +339,27 @@ def _bullet_size(bullets: list) -> int:
     """Adaptive bullet font size: fewer / shorter bullets → larger text.
 
     Conservative sizing to prevent text from overflowing constrained shapes.
+    Uses aggressive down-scaling for long or numerous bullets.
     """
     if not bullets:
-        return 16
+        return 14
     n    = len(bullets)
     avg  = sum(len(b) for b in bullets) / n
     maxl = max(len(b) for b in bullets)
-    # Very long individual bullets → force smaller text
-    if maxl > 140 or (n >= 4 and avg > 80):
+    total = sum(len(b) for b in bullets)
+    # Very long individual bullets or high total volume → force small text
+    if maxl > 120 or total > 500 or (n >= 4 and avg > 70):
+        return 11
+    if maxl > 100 or total > 400 or (n >= 4 and avg > 60):
+        return 12
+    if maxl > 80 or (n >= 3 and avg > 50):
         return 13
-    if maxl > 100 or (n >= 3 and avg > 60):
-        return 14
-    if n <= 3 and avg <= 45:  return 20
-    if n <= 4 and avg <= 60:  return 18
-    if n <= 6:                return 16
-    return 14
+    if n <= 3 and avg <= 35:  return 18
+    if n <= 3 and avg <= 50:  return 16
+    if n <= 4 and avg <= 45:  return 15
+    if n <= 5:                return 14
+    if n <= 7:                return 13
+    return 12
 
 
 # ─── Frame Elements (shared by all content slides) ───────────────────────────
@@ -385,6 +391,7 @@ def _add_title(slide, g: SlideGeometry, text: str, base_size: int = 32):
     size = _title_size(text, base_size)
     txb  = _textbox(slide, g.x(ML), g.y(g.title_y), g.w(CW), g.h(g.title_h))
     _vcenter(txb)
+    _enable_auto_shrink(txb)
     p    = txb.text_frame.paragraphs[0]
     _set_para(p, text, size, bold=True, color=COLORS["text_dark"])
     return txb
@@ -410,7 +417,7 @@ def _slide_frame(slide, g: SlideGeometry, title: str, base_size: int = 28):
 def _add_bullets(tf, bullets: list, size: int = 14,
                  bold_first_word: bool = True,
                  color: RGBColor = None,
-                 line_spacing: float = 1.35):
+                 line_spacing: float = 1.15):
     """
     Render a bullet list into a text frame.
     McKinsey style: em-dash prefix, bold keyword before colon.
@@ -878,6 +885,7 @@ def _build_title_slide(slide, structure: PresentationStructure,
     ty   = 0.28
     txb  = _textbox(slide, g.x(0.08), g.y(ty), g.w(0.84), g.h(0.22))
     _vcenter(txb)
+    _enable_auto_shrink(txb)
     p    = txb.text_frame.paragraphs[0]
     _set_para(p, structure.title, size, bold=True,
               color=COLORS["text_dark"], align=PP_ALIGN.LEFT)
@@ -889,6 +897,7 @@ def _build_title_slide(slide, structure: PresentationStructure,
     # Subtitle
     sub_y = rule_y + 0.015
     sub   = _textbox(slide, g.x(0.08), g.y(sub_y), g.w(0.65), g.h(0.12))
+    _enable_auto_shrink(sub)
     p2    = sub.text_frame.paragraphs[0]
     _set_para(p2, structure.subtitle, 22, color=COLORS["text_body"])
 
@@ -928,6 +937,7 @@ def _build_section_slide(
     size   = _title_size(content.title, 40)
     txb    = _textbox(slide, text_x, g.y(0.28), text_w, g.h(0.42))
     _vcenter(txb)
+    _enable_auto_shrink(txb)
     p      = txb.text_frame.paragraphs[0]
     _set_para(p, content.title, size, bold=True, color=COLORS["text_dark"])
 
@@ -1153,6 +1163,7 @@ def _build_key_number_slide(slide, content: SlideContent, g: SlideGeometry):
     if content.bullets and bullet_h > g.h(0.06):
         size = _bullet_size(content.bullets)
         btxb = _textbox(slide, bl, bullet_top, bw, bullet_h)
+        _enable_auto_shrink(btxb)
         _add_bullets(btxb.text_frame, content.bullets, size=size)
         for p in btxb.text_frame.paragraphs:
             p.alignment = PP_ALIGN.CENTER
@@ -1219,6 +1230,7 @@ def _build_column_card(slide, g: SlideGeometry,
     if heading:
         h_txb = _textbox(slide, inner_x, top + pad_y, inner_w, heading_h)
         _vcenter(h_txb)
+        _enable_auto_shrink(h_txb)
         p     = h_txb.text_frame.paragraphs[0]
         _set_para(p, heading, 18, bold=True, color=accent)
 
@@ -1481,6 +1493,7 @@ def _build_metrics_grid_slide(slide, content: SlideContent, g: SlideGeometry) ->
         val_top  = cy + int(ch * 0.14)
         val_h    = int(ch * 0.44)
         val_txb  = _textbox(slide, inner_x, val_top, inner_w, val_h)
+        _enable_auto_shrink(val_txb)
         val_p    = val_txb.text_frame.paragraphs[0]
         val_p.font.name      = FONT
         val_p.font.size      = Pt(v_size)
@@ -1506,6 +1519,7 @@ def _build_metrics_grid_slide(slide, content: SlideContent, g: SlideGeometry) ->
         lbl_top = cy + int(ch * 0.58)
         lbl_h   = int(ch * 0.30)
         lbl_txb = _textbox(slide, inner_x, lbl_top, inner_w, lbl_h)
+        _enable_auto_shrink(lbl_txb)
         lbl_p   = lbl_txb.text_frame.paragraphs[0]
         lbl_p.font.name      = FONT
         lbl_p.font.size      = Pt(12)
@@ -1580,6 +1594,7 @@ def _build_metrics_grid_slide(slide, content: SlideContent, g: SlideGeometry) ->
     num_h    = (bt + bh) - num_top - g.h(0.080)
     num_txb  = _textbox(slide, inner_x, num_top, inner_w, num_h)
     _vcenter(num_txb)
+    _enable_auto_shrink(num_txb)
     num_p    = num_txb.text_frame.paragraphs[0]
     num_p.font.name      = FONT
     num_p.font.size      = Pt(n_size)
@@ -1750,6 +1765,7 @@ def _build_pricing_slide(slide, content: SlideContent, g: SlideGeometry) -> None
             if y + feat_row_h > card_t + card_h - g.h(0.010):
                 break   # prevent overflow
             ftxb = _textbox(slide, inner_x, y, inner_w, feat_row_h)
+            _enable_auto_shrink(ftxb)
             fp   = ftxb.text_frame.paragraphs[0]
             r1   = fp.add_run()
             r1.text           = "✓  "
@@ -1974,8 +1990,9 @@ def _build_timeline_slide(slide, content: SlideContent, g: SlideGeometry) -> Non
 
         lbl_txb = _textbox(slide, label_x, label_y, label_w, label_h)
         lbl_txb.text_frame.word_wrap = True
-        title_size = 15 if n <= 4 else 13
-        desc_size  = 12 if n <= 4 else 11
+        _enable_auto_shrink(lbl_txb)
+        title_size = 14 if n <= 4 else 12
+        desc_size  = 11 if n <= 4 else 10
 
         p = lbl_txb.text_frame.paragraphs[0]
         p.font.name      = FONT
